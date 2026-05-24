@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useWindowResize } from "./useWindow";
 import { useGlobalShortcuts } from "@/hooks";
-import { MAX_FILES } from "@/config";
 import { useApp } from "@/contexts";
 import {
   fetchAIResponse,
@@ -60,6 +59,7 @@ export const useCompletion = () => {
     selectedSttProvider,
     allSttProviders,
     selectedAudioDevices,
+    supportsImages,
   } = useApp();
   
   const globalShortcuts = useGlobalShortcuts();
@@ -349,7 +349,7 @@ export const useCompletion = () => {
         const vadConfig = {
           enabled: false, 
           max_recording_duration_secs: 180,
-          hop_size: 1024, sensitivity_rms: 0.012, peak_threshold: 0.035, silence_chunks: 45, min_speech_chunks: 7, pre_speech_chunks: 12, noise_gate_threshold: 0.003
+          box_size: 1024, sensitivity_rms: 0.012, peak_threshold: 0.035, silence_chunks: 45, min_speech_chunks: 7, pre_speech_chunks: 12, noise_gate_threshold: 0.003
         };
 
         const deviceId = selectedAudioDevices?.input?.id && selectedAudioDevices.input.id !== "default"
@@ -578,10 +578,7 @@ export const useCompletion = () => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     files.forEach((file) => {
-      if (
-        file.type.startsWith("image/") &&
-        state.attachedFiles.length < MAX_FILES
-      ) {
+      if (file.type.startsWith("image/")) {
         addFile(file);
       }
     });
@@ -590,14 +587,6 @@ export const useCompletion = () => {
 
   const handleScreenshotSubmit = useCallback(
     async (base64: string, prompt?: string) => {
-      if (state.attachedFiles.length >= MAX_FILES) {
-        setState((prev) => ({
-          ...prev,
-          error: `You can only upload ${MAX_FILES} files`,
-        }));
-        return;
-      }
-
       try {
         if (prompt) {
           const attachedFile: AttachedFile = {
@@ -727,7 +716,6 @@ export const useCompletion = () => {
       }
     },
     [
-      state.attachedFiles.length,
       state.conversationHistory,
       selectedAIProvider,
       allAiProviders,
@@ -753,32 +741,86 @@ export const useCompletion = () => {
   const handlePaste = useCallback(
     async (e: React.ClipboardEvent) => {
       const items = e.clipboardData?.items;
-      if (!items) return;
+      const files = e.clipboardData?.files;
+      let hasImages = false;
 
-      const hasImages = Array.from(items).some((item) =>
-        item.type.startsWith("image/")
-      );
+      // Check standard lists
+      if (items && items.length > 0) {
+        hasImages = Array.from(items).some((item) => item.type.startsWith("image/"));
+      } else if (files && files.length > 0) {
+        hasImages = Array.from(files).some((file) => file.type.startsWith("image/"));
+      }
+
+      // Check async clipboard
+      if (!hasImages) {
+        try {
+          const clipboardItems = await navigator.clipboard.read().catch(() => []);
+          for (const clipItem of clipboardItems) {
+            if (clipItem.types.some((t) => t.startsWith("image/"))) {
+              hasImages = true;
+              break;
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
 
       if (hasImages) {
         e.preventDefault();
+        e.stopPropagation();
+
+        if (!supportsImages) {
+          setState((prev) => ({
+            ...prev,
+            error: "Current AI model / provider details do not support image inputs.",
+          }));
+          return;
+        }
+
         const processedFiles: File[] = [];
 
-        Array.from(items).forEach((item) => {
-          if (
-            item.type.startsWith("image/") &&
-            state.attachedFiles.length + processedFiles.length < MAX_FILES
-          ) {
-            const file = item.getAsFile();
-            if (file) {
+        if (items && items.length > 0) {
+          Array.from(items).forEach((item) => {
+            if (item.type.startsWith("image/")) {
+              const file = item.getAsFile();
+              if (file) processedFiles.push(file);
+            }
+          });
+        }
+
+        if (processedFiles.length === 0 && files && files.length > 0) {
+          Array.from(files).forEach((file) => {
+            if (file.type.startsWith("image/")) {
               processedFiles.push(file);
             }
-          }
-        });
+          });
+        }
 
-        await Promise.all(processedFiles.map((file) => addFile(file)));
+        if (processedFiles.length === 0) {
+          try {
+            const clipboardItems = await navigator.clipboard.read();
+            for (const clipItem of clipboardItems) {
+              const imgTypes = clipItem.types.filter((t) => t.startsWith("image/"));
+              for (const type of imgTypes) {
+                const blob = await clipItem.getType(type);
+                const fileExt = type.split("/")[1] || "png";
+                const file = new File([blob], `screenshot_${Date.now()}.${fileExt}`, { type });
+                processedFiles.push(file);
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        if (processedFiles.length > 0) {
+          await Promise.all(processedFiles.map((file) => addFile(file)));
+          setState((prev) => ({ ...prev, error: null }));
+        }
       }
     },
-    [state.attachedFiles.length, addFile]
+    [addFile, supportsImages]
   );
 
   useEffect(() => {

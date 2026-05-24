@@ -7,7 +7,6 @@ import {
 import { Button, ScrollArea } from "@/components";
 import { PaperclipIcon, XIcon, PlusIcon, TrashIcon } from "lucide-react";
 import { UseCompletionReturn } from "@/types";
-import { MAX_FILES } from "@/config";
 import { useApp } from "@/contexts";
 
 export const Files = ({
@@ -26,8 +25,6 @@ export const Files = ({
     fileInputRef.current?.click();
   };
 
-  const canAddMore = attachedFiles.length < MAX_FILES;
-
   return (
     <div className="relative">
       <Popover open={isFilesPopoverOpen} onOpenChange={setIsFilesPopoverOpen}>
@@ -36,10 +33,8 @@ export const Files = ({
             size="icon"
             onClick={() => {
               if (attachedFiles.length === 0) {
-                // If no files, directly open file picker
                 fileInputRef.current?.click();
               } else {
-                // If files exist, show popover
                 setIsFilesPopoverOpen(true);
               }
             }}
@@ -55,7 +50,6 @@ export const Files = ({
           </Button>
         </PopoverTrigger>
 
-        {/* File count badge */}
         {attachedFiles.length > 0 && (
           <div className="absolute -top-2 -right-2 bg-primary-foreground text-primary rounded-full h-5 w-5 flex border border-primary items-center justify-center text-xs font-medium">
             {attachedFiles.length}
@@ -71,7 +65,7 @@ export const Files = ({
           >
             <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
               <h3 className="font-semibold text-sm select-none">
-                Attached Images ({attachedFiles.length}/{MAX_FILES})
+                Attached Images ({attachedFiles.length})
               </h3>
               <Button
                 size="icon"
@@ -85,7 +79,6 @@ export const Files = ({
             </div>
 
             <ScrollArea className="p-4 h-[calc(100vh-11rem)]">
-              {/* Grid layout based on number of images */}
               <div
                 className={`gap-3 ${
                   attachedFiles.length <= 2
@@ -101,10 +94,9 @@ export const Files = ({
                     <img
                       src={`data:${file.type};base64,${file.base64}`}
                       alt={file.name}
-                      className={`w-full object-cover h-full`}
+                      className="w-full object-cover h-full"
                     />
 
-                    {/* File info overlay */}
                     <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-2 text-xs">
                       <div className="truncate font-medium">{file.name}</div>
                       <div className="text-gray-300">
@@ -112,7 +104,6 @@ export const Files = ({
                       </div>
                     </div>
 
-                    {/* Remove button */}
                     <Button
                       size="icon"
                       variant="default"
@@ -127,16 +118,15 @@ export const Files = ({
               </div>
             </ScrollArea>
 
-            {/* Sticky footer with Add More button */}
             <div className="sticky bottom-0 border-t bg-background p-3 flex flex-row gap-2">
               <Button
                 onClick={handleAddMoreClick}
-                disabled={!canAddMore || isLoading}
+                disabled={isLoading}
                 className="w-2/4"
                 variant="outline"
               >
                 <PlusIcon className="h-4 w-4 mr-2" />
-                Add More Images {!canAddMore && `(${MAX_FILES} max)`}
+                Add More Images
               </Button>
               <Button
                 className="w-2/4"

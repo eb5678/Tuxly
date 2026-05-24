@@ -1,7 +1,6 @@
 import { Button } from "@/components";
 import { LaptopMinimalIcon, Loader2, MousePointer2Icon } from "lucide-react";
 import { UseCompletionReturn } from "@/types";
-import { MAX_FILES } from "@/config";
 import { useApp } from "@/contexts";
 
 export const Screenshot = ({
@@ -18,7 +17,6 @@ export const Screenshot = ({
   const processingMode = screenshotConfiguration.mode;
 
   const isDisabled =
-    attachedFiles.length >= MAX_FILES ||
     isLoading ||
     isScreenshotLoading ||
     !supportsImages;
@@ -30,7 +28,7 @@ export const Screenshot = ({
       title={
         !supportsImages
           ? "Screenshot not supported by current AI provider"
-          : `${captureMode} mode (${processingMode}) - ${attachedFiles.length}/${MAX_FILES} files`
+          : `${captureMode} mode (${processingMode}) - ${attachedFiles.length} files`
       }
       onClick={captureScreenshot}
       disabled={isDisabled}

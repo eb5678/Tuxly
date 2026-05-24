@@ -19,8 +19,5 @@ export const STORAGE_KEYS = {
   SUPPORTS_IMAGES: "supports_images",
 } as const;
 
-// Max number of files that can be attached to a message
-export const MAX_FILES = 10;
-
 // Default settings
 export const DEFAULT_SYSTEM_PROMPT = "";

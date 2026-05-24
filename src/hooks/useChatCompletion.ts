@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useApp } from "@/contexts";
-import { MAX_FILES } from "@/config";
 import {
   fetchAIResponse,
   saveConversation,
@@ -57,6 +56,7 @@ export const useChatCompletion = (
     selectedSttProvider,
     allSttProviders,
     selectedAudioDevices,
+    supportsImages,
   } = useApp();
 
   const [state, setState] = useState<ChatCompletionState>({
@@ -355,10 +355,7 @@ export const useChatCompletion = (
     const files = Array.from(e.target.files || []);
 
     files.forEach((file) => {
-      if (
-        file.type.startsWith("image/") &&
-        state.attachedFiles.length < MAX_FILES
-      ) {
+      if (file.type.startsWith("image/")) {
         addFile(file);
       }
     });
@@ -368,14 +365,6 @@ export const useChatCompletion = (
 
   const handleScreenshotSubmit = useCallback(
     async (base64: string, prompt?: string) => {
-      if (state.attachedFiles.length >= MAX_FILES) {
-        setState((prev) => ({
-          ...prev,
-          error: `You can only upload ${MAX_FILES} files`,
-        }));
-        return;
-      }
-
       try {
         if (prompt) {
           const attachedFile: AttachedFile = {
@@ -419,7 +408,7 @@ export const useChatCompletion = (
         }));
       }
     },
-    [state.attachedFiles.length, submit]
+    [submit]
   );
 
   const onRemoveAllFiles = () => {
@@ -439,33 +428,88 @@ export const useChatCompletion = (
   const handlePaste = useCallback(
     async (e: React.ClipboardEvent) => {
       const items = e.clipboardData?.items;
-      if (!items) return;
+      const files = e.clipboardData?.files;
+      let hasImages = false;
 
-      const hasImages = Array.from(items).some((item) =>
-        item.type.startsWith("image/")
-      );
+      // 1. Sync check standard clipboard targets
+      if (items && items.length > 0) {
+        hasImages = Array.from(items).some((item) => item.type.startsWith("image/"));
+      } else if (files && files.length > 0) {
+        hasImages = Array.from(files).some((file) => file.type.startsWith("image/"));
+      }
+
+      // 2. Wayland direct clipboard reader callback fallback
+      if (!hasImages) {
+        try {
+          const clipboardItems = await navigator.clipboard.read().catch(() => []);
+          for (const clipItem of clipboardItems) {
+            if (clipItem.types.some((t) => t.startsWith("image/"))) {
+              hasImages = true;
+              break;
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
 
       if (hasImages) {
         e.preventDefault();
+        e.stopPropagation();
+
+        if (!supportsImages) {
+          setState((prev) => ({
+            ...prev,
+            error: "Current AI model / provider details do not support image inputs.",
+          }));
+          return;
+        }
 
         const processedFiles: File[] = [];
 
-        Array.from(items).forEach((item) => {
-          if (
-            item.type.startsWith("image/") &&
-            state.attachedFiles.length + processedFiles.length < MAX_FILES
-          ) {
-            const file = item.getAsFile();
-            if (file) {
+        // Pull files from sync elements
+        if (items && items.length > 0) {
+          Array.from(items).forEach((item) => {
+            if (item.type.startsWith("image/")) {
+              const file = item.getAsFile();
+              if (file) processedFiles.push(file);
+            }
+          });
+        }
+
+        if (processedFiles.length === 0 && files && files.length > 0) {
+          Array.from(files).forEach((file) => {
+            if (file.type.startsWith("image/")) {
               processedFiles.push(file);
             }
-          }
-        });
+          });
+        }
 
-        await Promise.all(processedFiles.map((file) => addFile(file)));
+        // Pull files directly from native paste async target lists
+        if (processedFiles.length === 0) {
+          try {
+            const clipboardItems = await navigator.clipboard.read();
+            for (const clipItem of clipboardItems) {
+              const imgTypes = clipItem.types.filter((t) => t.startsWith("image/"));
+              for (const type of imgTypes) {
+                const blob = await clipItem.getType(type);
+                const fileExt = type.split("/")[1] || "png";
+                const file = new File([blob], `screenshot_${Date.now()}.${fileExt}`, { type });
+                processedFiles.push(file);
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        if (processedFiles.length > 0) {
+          await Promise.all(processedFiles.map((file) => addFile(file)));
+          setState((prev) => ({ ...prev, error: null }));
+        }
       }
     },
-    [state.attachedFiles.length, addFile]
+    [addFile, supportsImages]
   );
 
   const captureScreenshot = useCallback(async () => {

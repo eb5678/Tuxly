@@ -1,6 +1,5 @@
 import { Button } from "@/components";
 import { LaptopMinimalIcon, Loader2, MousePointer2Icon } from "lucide-react";
-import { MAX_FILES } from "@/config";
 import { useApp } from "@/contexts";
 
 interface ChatScreenshotProps {
@@ -34,11 +33,10 @@ export const ChatScreenshot = ({
       title={
         !supportsImages
           ? "Screenshot not supported by current AI provider"
-          : `${captureMode} mode (${processingMode}) - ${attachedFiles.length}/${MAX_FILES} files`
+          : `${captureMode} mode (${processingMode}) - ${attachedFiles.length} files`
       }
       onClick={captureScreenshot}
       disabled={
-        attachedFiles.length >= MAX_FILES ||
         isLoading ||
         isScreenshotLoading ||
         disabled
