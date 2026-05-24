@@ -1,5 +1,5 @@
 import { Dispatch, SetStateAction } from "react";
-import { ScreenshotConfig, TYPE_PROVIDER } from "@/types";
+import { TYPE_PROVIDER } from "@/types";
 
 export type IContextType = {
   systemPrompt: string;
@@ -30,10 +30,6 @@ export type IContextType = {
     provider: string;
     variables: Record<string, string>;
   }) => void;
-  screenshotConfiguration: ScreenshotConfig;
-  setScreenshotConfiguration: React.Dispatch<
-    React.SetStateAction<ScreenshotConfig>
-  >;
   loadData: () => void;
   selectedAudioDevices: {
     input: { id: string; name: string };

@@ -1,5 +1,4 @@
 import { useCompletion } from "@/hooks";
-import { Screenshot } from "./Screenshot";
 import { Files } from "./Files";
 import { Audio } from "./Audio";
 import { Input } from "./Input";
@@ -18,21 +17,18 @@ export const Completion = ({ isHidden }: { isHidden: boolean }) => {
 
   return (
     <div className="flex flex-col w-full h-full">
-      {/* Input Bar Layer */}
       <div data-tauri-drag-region className="flex flex-row items-center gap-2 p-2 border-b border-border/50 shrink-0">
         <Button size="icon" variant="ghost" title="New Chat" onClick={completion.startNewConversation}>
           <MessageSquarePlus className="h-4 w-4" />
         </Button>
         <Audio {...completion} />
         <Input {...completion} isHidden={isHidden} />
-        <Screenshot {...completion} />
         <Files {...completion} />
         <Button size="icon" variant="ghost" title="Open Dev Space" onClick={openDashboard}>
           <SparklesIcon className="h-4 w-4" />
         </Button>
       </div>
       
-      {/* Messages Area Layer */}
       <ScrollArea ref={completion.scrollAreaRef} className="flex-1 p-4 overflow-y-auto">
          <div className="flex flex-col space-y-4 pb-6 overflow-hidden">
             {completion.error && (
@@ -60,7 +56,6 @@ export const Completion = ({ isHidden }: { isHidden: boolean }) => {
               </div>
             ))}
             
-            {/* Active streaming response */}
             {(completion.isLoading || completion.response) && (
               <div className="p-3 rounded-lg text-sm bg-muted/50 mr-10">
                 <div className="flex items-center justify-between mb-2">

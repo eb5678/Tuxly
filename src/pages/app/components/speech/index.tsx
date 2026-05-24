@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Button,
   Popover,
@@ -11,11 +11,9 @@ import {
   AlertCircleIcon,
   LoaderIcon,
   AudioLinesIcon,
-  CameraIcon,
   PlusIcon,
   XIcon,
 } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
 import { ModeSwitcher } from "./ModeSwitcher";
 import { RecordingPanel } from "./RecordingPanel";
 import { ResultsSection } from "./ResultsSection";
@@ -24,7 +22,6 @@ import { PermissionFlow } from "./PermissionFlow";
 import { QuickActions } from "./QuickActions";
 import { Warning } from "./Warning";
 import { useSystemAudioType } from "@/hooks";
-import { useApp } from "@/contexts";
 import { cn } from "@/lib/utils";
 
 export const SystemAudio = (props: useSystemAudioType) => {
@@ -65,19 +62,12 @@ export const SystemAudio = (props: useSystemAudioType) => {
     scrollAreaRef,
   } = props;
 
-  const { supportsImages } = useApp();
-
   // View mode toggle
   const [conversationMode, setConversationMode] = useState(false);
-
-  // Screenshot state
-  const [screenshotImage, setScreenshotImage] = useState<string | null>(null);
-  const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
 
   const isVadMode = vadConfig.enabled;
   const hasResponse = lastAIResponse || isAIProcessing;
 
-  // Keyboard shortcut for Cmd+K (Meta+K) or Ctrl+K to toggle view mode
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isPopoverOpen) return;
@@ -91,13 +81,6 @@ export const SystemAudio = (props: useSystemAudioType) => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isPopoverOpen]);
-
-  // Reset screenshot when processing starts (message is being sent)
-  useEffect(() => {
-    if (isProcessing && screenshotImage) {
-      setScreenshotImage(null);
-    }
-  }, [isProcessing, screenshotImage]);
 
   const handleToggleCapture = async () => {
     if (capturing) {
@@ -113,26 +96,6 @@ export const SystemAudio = (props: useSystemAudioType) => {
       enabled: vadEnabled,
     });
   };
-
-  // Capture screenshot functionality
-  const handleCaptureScreenshot = useCallback(async () => {
-    if (isCapturingScreenshot) return;
-
-    setIsCapturingScreenshot(true);
-    try {
-      // Capture screenshot natively in Linux handling
-      const base64: string = await invoke("capture_to_base64");
-      setScreenshotImage(base64);
-    } catch (err) {
-      console.error("Failed to capture screenshot:", err);
-    } finally {
-      setIsCapturingScreenshot(false);
-    }
-  }, [isCapturingScreenshot]);
-
-  const handleRemoveScreenshot = useCallback(() => {
-    setScreenshotImage(null);
-  }, []);
 
   const getButtonIcon = () => {
     if (setupRequired) return <AlertCircleIcon className="text-orange-500" />;
@@ -184,10 +147,8 @@ export const SystemAudio = (props: useSystemAudioType) => {
           sideOffset={8}
         >
           <div className="flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
-            {/* Header - Mode Switcher + Actions */}
             <div className="flex-shrink-0 p-3 border-b border-border/50">
               <div className="flex items-center justify-between gap-2">
-                {/* Mode Switcher */}
                 {!setupRequired && (
                   <ModeSwitcher
                     isVadMode={isVadMode}
@@ -203,31 +164,7 @@ export const SystemAudio = (props: useSystemAudioType) => {
                   <h2 className="font-semibold text-sm">Setup Required</h2>
                 )}
 
-                {/* Action Buttons */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {/* Screenshot Button */}
-                  {!setupRequired && supportsImages && (
-                    <Button
-                      size="sm"
-                      variant={screenshotImage ? "default" : "outline"}
-                      onClick={handleCaptureScreenshot}
-                      disabled={isCapturingScreenshot}
-                      className={cn(
-                        "h-6 text-[10px] gap-1 px-2",
-                        screenshotImage && "bg-primary text-primary-foreground"
-                      )}
-                      title="Capture screenshot to include with transcription"
-                    >
-                      {isCapturingScreenshot ? (
-                        <LoaderIcon className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <CameraIcon className="w-3 h-3" />
-                      )}
-                      Screenshot
-                    </Button>
-                  )}
-
-                  {/* New Conversation Button */}
                   {!setupRequired && (
                     <Button
                       size="sm"
@@ -241,7 +178,6 @@ export const SystemAudio = (props: useSystemAudioType) => {
                     </Button>
                   )}
 
-                  {/* Close Button */}
                   {!capturing && (
                     <Button
                       size="icon"
@@ -262,34 +198,6 @@ export const SystemAudio = (props: useSystemAudioType) => {
 
             <ScrollArea className="flex-1 min-h-0" ref={scrollAreaRef}>
               <div className="p-2 space-y-2">
-                {/* Screenshot Preview */}
-                {screenshotImage && (
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
-                    <img
-                      src={`data:image/png;base64,${screenshotImage}`}
-                      alt="Screenshot"
-                      className="h-12 w-20 object-cover rounded"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-medium">
-                        Screenshot attached
-                      </p>
-                      <p className="text-[9px] text-muted-foreground">
-                        Will be sent with next transcription
-                      </p>
-                    </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-5 w-5"
-                      onClick={handleRemoveScreenshot}
-                    >
-                      <XIcon className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
-
-                {/* Error Display */}
                 {error && !setupRequired && (
                   <div className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
                     <AlertCircleIcon className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -302,19 +210,17 @@ export const SystemAudio = (props: useSystemAudioType) => {
                   </div>
                 )}
 
-                {/* Setup Required - Permission Flow */}
                 {setupRequired ? (
                   <PermissionFlow
                     onPermissionGranted={() => {
                       startCapture();
                     }}
                     onPermissionDenied={() => {
-                      // Keep showing setup instructions
+                      // instructions
                     }}
                   />
                 ) : (
                   <>
-                    {/* Recording Panel */}
                     <RecordingPanel
                       isVadMode={isVadMode}
                       isRecording={isRecordingInContinuousMode}
@@ -327,7 +233,6 @@ export const SystemAudio = (props: useSystemAudioType) => {
                       onIgnore={ignoreContinuousRecording}
                     />
 
-                    {/* AI Response */}
                     <ResultsSection
                       lastTranscription={lastTranscription}
                       lastAIResponse={lastAIResponse}
@@ -337,7 +242,6 @@ export const SystemAudio = (props: useSystemAudioType) => {
                       setConversationMode={setConversationMode}
                     />
 
-                    {/* Settings Panel */}
                     <SettingsPanel
                       vadConfig={vadConfig}
                       onUpdateVadConfig={updateVadConfiguration}
@@ -347,14 +251,12 @@ export const SystemAudio = (props: useSystemAudioType) => {
                       setContextContent={setContextContent}
                     />
 
-                    {/* Help/Keyboard Shortcuts */}
                     <Warning isVadMode={isVadMode} />
                   </>
                 )}
               </div>
             </ScrollArea>
 
-            {/* Quick Actions */}
             {!setupRequired && hasResponse && (
               <div className="flex-shrink-0 border-t border-border/50 p-2">
                 <QuickActions

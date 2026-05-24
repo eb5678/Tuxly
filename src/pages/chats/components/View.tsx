@@ -33,7 +33,6 @@ import { useApp } from "@/contexts";
 import {
   DeleteConfirmationDialog,
   ChatAudio,
-  ChatScreenshot,
   ChatFiles,
   AudioRecorder,
 } from ".";
@@ -253,14 +252,6 @@ const View = () => {
                     isRecording={completion.isRecording}
                     setIsRecording={completion.setIsRecording}
                     disabled={false}
-                  />
-                  <ChatScreenshot
-                    screenshotConfiguration={completion.screenshotConfiguration}
-                    attachedFiles={completion.attachedFiles}
-                    isLoading={completion.isLoading}
-                    captureScreenshot={completion.captureScreenshot}
-                    isScreenshotLoading={completion.isScreenshotLoading}
-                    disabled={!supportsImages}
                   />
                 </div>
 

@@ -1,13 +1,6 @@
 import { TYPE_PROVIDER } from "./provider.type";
-import { ScreenshotConfig, ScreenshotMode } from "./settings";
 
 export interface UseSettingsReturn {
-  screenshotConfiguration: ScreenshotConfig;
-  setScreenshotConfiguration: React.Dispatch<
-    React.SetStateAction<ScreenshotConfig>
-  >;
-  handleScreenshotModeChange: (value: ScreenshotMode) => void;
-  handleScreenshotEnabledChange: (enabled: boolean) => void;
   allAiProviders: TYPE_PROVIDER[];
   allSttProviders: TYPE_PROVIDER[];
   selectedAIProvider: { provider: string; variables: Record<string, string> };

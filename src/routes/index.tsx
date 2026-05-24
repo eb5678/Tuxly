@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import {
   App, SystemPrompts, ViewChat, DevSpace, 
-  Shortcuts, Audio, Chats, ScreenshotSettings
+  Shortcuts, Audio, Chats
 } from "@/pages";
 import { DashboardLayout } from "@/layouts";
 
@@ -17,7 +17,6 @@ export default function AppRoutes() {
           <Route path="/shortcuts" element={<Shortcuts />} />
           <Route path="/audio" element={<Audio />} />
           <Route path="/dev-space" element={<DevSpace />} />
-          <Route path="/screenshot" element={<ScreenshotSettings />} />
           <Route path="*" element={<Navigate to="/chats" replace />} />
         </Route>
       </Routes>

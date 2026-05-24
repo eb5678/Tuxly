@@ -4,32 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pluely - AI Assistant</title>
-    
-    <script>
-      // Run immediately before CSS or DOM even parses.
-      // This tells the browser instantly if this is the capture overlay, completely skipping the black flash.
-      const isOverlay = (window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label || "").startsWith("capture-overlay-");
-      if (isOverlay) {
-        document.documentElement.classList.add("is-overlay");
-      }
-    </script>
-    
     <style>
-      /* 
-        High-specificity synchronous styles.
-        Forces complete transparency instantly for the overlay window, 
-        while retaining AMOLED black for the main application to avoid white flashes.
-      */
-      html:not(.is-overlay), html:not(.is-overlay) body {
+      html, body {
         background-color: #000000 !important;
-      }
-      
-      html.is-overlay, html.is-overlay body {
-        background-color: transparent !important;
       }
     </style>
   </head>
-
   <body style="color: #ffffff;">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

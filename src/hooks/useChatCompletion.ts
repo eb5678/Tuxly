@@ -9,8 +9,6 @@ import {
   generateMessageId,
   generateRequestId,
 } from "@/lib";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 
 interface AttachedFile {
   id: string;
@@ -51,8 +49,6 @@ export const useChatCompletion = (
     selectedAIProvider,
     allAiProviders,
     systemPrompt,
-    screenshotConfiguration,
-    setScreenshotConfiguration,
     selectedSttProvider,
     allSttProviders,
     selectedAudioDevices,
@@ -69,19 +65,11 @@ export const useChatCompletion = (
   const [micOpen, setMicOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isFilesPopoverOpen, setIsFilesPopoverOpen] = useState(false);
-  const [isScreenshotLoading, setIsScreenshotLoading] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentRequestIdRef = useRef<string | null>(null);
-  const isProcessingScreenshotRef = useRef(false);
-  const screenshotConfigRef = useRef(screenshotConfiguration);
-  const screenshotInitiatedByThisContext = useRef(false);
-
-  useEffect(() => {
-    screenshotConfigRef.current = screenshotConfiguration;
-  }, [screenshotConfiguration]);
 
   const setInput = useCallback((value: string) => {
     setState((prev) => ({ ...prev, input: value }));
@@ -363,54 +351,6 @@ export const useChatCompletion = (
     e.target.value = "";
   };
 
-  const handleScreenshotSubmit = useCallback(
-    async (base64: string, prompt?: string) => {
-      try {
-        if (prompt) {
-          const attachedFile: AttachedFile = {
-            id: Date.now().toString(),
-            name: `screenshot_${Date.now()}.png`,
-            type: "image/png",
-            base64: base64,
-            size: base64.length,
-          };
-
-          setState((prev) => ({
-            ...prev,
-            attachedFiles: [...prev.attachedFiles, attachedFile],
-            input: prompt,
-          }));
-
-          setTimeout(() => submit(prompt), 100);
-        } else {
-          const attachedFile: AttachedFile = {
-            id: Date.now().toString(),
-            name: `screenshot_${Date.now()}.png`,
-            type: "image/png",
-            base64: base64,
-            size: base64.length,
-          };
-
-          setState((prev) => ({
-            ...prev,
-            attachedFiles: [...prev.attachedFiles, attachedFile],
-          }));
-        }
-      } catch (error) {
-        console.error("Failed to process screenshot:", error);
-        setState((prev) => ({
-          ...prev,
-          error:
-            error instanceof Error
-              ? error.message
-              : "An error occurred processing screenshot",
-          isLoading: false,
-        }));
-      }
-    },
-    [submit]
-  );
-
   const onRemoveAllFiles = () => {
     clearFiles();
     setIsFilesPopoverOpen(false);
@@ -485,7 +425,7 @@ export const useChatCompletion = (
           });
         }
 
-        // Pull files directly from native paste async target lists
+        // Pull files directly from native paste async target lists (Cosmic Wayland Raw Stream fallback)
         if (processedFiles.length === 0) {
           try {
             const clipboardItems = await navigator.clipboard.read();
@@ -511,97 +451,6 @@ export const useChatCompletion = (
     },
     [addFile, supportsImages]
   );
-
-  const captureScreenshot = useCallback(async () => {
-    if (!handleScreenshotSubmit) return;
-
-    const config = screenshotConfigRef.current;
-    screenshotInitiatedByThisContext.current = true;
-    setIsScreenshotLoading(true);
-
-    try {
-      if (config.enabled) {
-        const base64 = await invoke("capture_to_base64");
-
-        if (config.mode === "auto") {
-          await handleScreenshotSubmit(base64 as string);
-        } else if (config.mode === "manual") {
-          await handleScreenshotSubmit(base64 as string);
-        }
-        screenshotInitiatedByThisContext.current = false;
-      } else {
-        isProcessingScreenshotRef.current = false;
-        await invoke("start_screen_capture");
-      }
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        error: "Failed to capture screenshot. Please try again.",
-      }));
-      isProcessingScreenshotRef.current = false;
-      screenshotInitiatedByThisContext.current = false;
-    } finally {
-      if (config.enabled) {
-        setIsScreenshotLoading(false);
-      }
-    }
-  }, [handleScreenshotSubmit]);
-
-  useEffect(() => {
-    let unlisten: any;
-
-    const setupListener = async () => {
-      unlisten = await listen("captured-selection", async (event: any) => {
-        if (!screenshotInitiatedByThisContext.current) {
-          return;
-        }
-
-        if (isProcessingScreenshotRef.current) {
-          return;
-        }
-
-        isProcessingScreenshotRef.current = true;
-        const base64 = event.payload;
-        const config = screenshotConfigRef.current;
-
-        try {
-          if (config.mode === "auto") {
-            await handleScreenshotSubmit(base64 as string);
-          } else if (config.mode === "manual") {
-            await handleScreenshotSubmit(base64 as string);
-          }
-        } catch (error) {
-          console.error("Error processing selection:", error);
-        } finally {
-          setIsScreenshotLoading(false);
-          screenshotInitiatedByThisContext.current = false;
-          setTimeout(() => {
-            isProcessingScreenshotRef.current = false;
-          }, 100);
-        }
-      });
-    };
-
-    setupListener();
-
-    return () => {
-      if (unlisten) {
-        unlisten();
-      }
-    };
-  }, [handleScreenshotSubmit]);
-
-  useEffect(() => {
-    const unlisten = listen("capture-closed", () => {
-      setIsScreenshotLoading(false);
-      isProcessingScreenshotRef.current = false;
-      screenshotInitiatedByThisContext.current = false;
-    });
-
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -629,9 +478,6 @@ export const useChatCompletion = (
     setIsRecording,
     micOpen,
     setMicOpen,
-    screenshotConfiguration,
-    setScreenshotConfiguration,
-    handleScreenshotSubmit,
     handleFileSelect,
     handleKeyPress,
     handlePaste,
@@ -639,8 +485,6 @@ export const useChatCompletion = (
     setIsFilesPopoverOpen,
     onRemoveAllFiles,
     inputRef,
-    captureScreenshot,
-    isScreenshotLoading,
     messagesEndRef,
     selectedSttProvider,
     allSttProviders,

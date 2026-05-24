@@ -54,8 +54,6 @@ export const useCompletion = () => {
     selectedAIProvider,
     allAiProviders,
     systemPrompt,
-    screenshotConfiguration,
-    setScreenshotConfiguration,
     selectedSttProvider,
     allSttProviders,
     selectedAudioDevices,
@@ -78,19 +76,9 @@ export const useCompletion = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isFilesPopoverOpen, setIsFilesPopoverOpen] = useState(false);
-  const [isScreenshotLoading, setIsScreenshotLoading] = useState(false);
   
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const isProcessingScreenshotRef = useRef(false);
-  const screenshotConfigRef = useRef(screenshotConfiguration);
-  const screenshotInitiatedByThisContext = useRef(false);
-
   const { resizeWindow } = useWindowResize();
-
-  useEffect(() => {
-    screenshotConfigRef.current = screenshotConfiguration;
-  }, [screenshotConfiguration]);
-
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -585,145 +573,6 @@ export const useCompletion = () => {
     e.target.value = "";
   };
 
-  const handleScreenshotSubmit = useCallback(
-    async (base64: string, prompt?: string) => {
-      try {
-        if (prompt) {
-          const attachedFile: AttachedFile = {
-            id: Date.now().toString(),
-            name: `screenshot_${Date.now()}.png`,
-            type: "image/png",
-            base64: base64,
-            size: base64.length,
-          };
-
-          const requestId = generateRequestId();
-          currentRequestIdRef.current = requestId;
-
-          if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
-          }
-
-          abortControllerRef.current = new AbortController();
-          const signal = abortControllerRef.current.signal;
-
-          try {
-            const messageHistory = state.conversationHistory.map((msg) => ({
-              role: msg.role,
-              content: msg.content,
-            }));
-
-            let fullResponse = "";
-
-            if (!selectedAIProvider.provider) {
-              setState((prev) => ({
-                ...prev,
-                error: "Please select an AI provider in settings",
-              }));
-              return;
-            }
-
-            const provider = allAiProviders.find(
-              (p) => p.id === selectedAIProvider.provider
-            );
-            if (!provider) {
-              setState((prev) => ({
-                ...prev,
-                error: "Invalid provider selected",
-              }));
-              return;
-            }
-
-            setState((prev) => ({
-              ...prev,
-              input: prompt,
-              isLoading: true,
-              error: null,
-              response: "",
-            }));
-
-            for await (const chunk of fetchAIResponse({
-              provider: provider,
-              selectedProvider: selectedAIProvider,
-              systemPrompt: systemPrompt || undefined,
-              history: messageHistory,
-              userMessage: prompt,
-              imagesBase64: [base64],
-              signal,
-            })) {
-              if (currentRequestIdRef.current !== requestId || signal.aborted) {
-                return; 
-              }
-
-              fullResponse += chunk;
-              setState((prev) => ({
-                ...prev,
-                response: prev.response + chunk,
-              }));
-            }
-
-            if (currentRequestIdRef.current !== requestId || signal.aborted) {
-              return;
-            }
-
-            setState((prev) => ({ ...prev, isLoading: false }));
-
-            setTimeout(() => {
-              inputRef.current?.focus();
-            }, 100);
-
-            if (fullResponse) {
-              await saveCurrentConversation(prompt, fullResponse, [
-                attachedFile,
-              ]);
-              setState((prev) => ({ ...prev, input: "" }));
-            }
-          } catch (e: any) {
-            if (currentRequestIdRef.current === requestId && !signal.aborted) {
-              setState((prev) => ({
-                ...prev,
-                error: e.message || "An error occurred",
-              }));
-            }
-          } finally {
-            if (currentRequestIdRef.current === requestId && !signal.aborted) {
-              setState((prev) => ({ ...prev, isLoading: false }));
-            }
-          }
-        } else {
-          const attachedFile: AttachedFile = {
-            id: Date.now().toString(),
-            name: `screenshot_${Date.now()}.png`,
-            type: "image/png",
-            base64: base64,
-            size: base64.length,
-          };
-
-          setState((prev) => ({
-            ...prev,
-            attachedFiles: [...prev.attachedFiles, attachedFile],
-          }));
-        }
-      } catch (error) {
-        setState((prev) => ({
-          ...prev,
-          error:
-            error instanceof Error
-              ? error.message
-              : "An error occurred processing screenshot",
-          isLoading: false,
-        }));
-      }
-    },
-    [
-      state.conversationHistory,
-      selectedAIProvider,
-      allAiProviders,
-      systemPrompt,
-      saveCurrentConversation,
-    ]
-  );
-
   const onRemoveAllFiles = () => {
     clearFiles();
     setIsFilesPopoverOpen(false);
@@ -862,92 +711,6 @@ export const useCompletion = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [scrollAreaRef]);
 
-  const captureScreenshot = useCallback(async () => {
-    if (!handleScreenshotSubmit) return;
-
-    const config = screenshotConfigRef.current;
-    screenshotInitiatedByThisContext.current = true;
-    setIsScreenshotLoading(true);
-
-    try {
-      if (config.enabled) {
-        const base64 = await invoke("capture_to_base64");
-
-        if (config.mode === "auto") {
-          await handleScreenshotSubmit(base64 as string);
-        } else if (config.mode === "manual") {
-          await handleScreenshotSubmit(base64 as string);
-        }
-        screenshotInitiatedByThisContext.current = false;
-      } else {
-        isProcessingScreenshotRef.current = false;
-        await invoke("start_screen_capture");
-      }
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        error: "Failed to capture screenshot. Please try again.",
-      }));
-      isProcessingScreenshotRef.current = false;
-      screenshotInitiatedByThisContext.current = false;
-    } finally {
-      if (config.enabled) {
-        setIsScreenshotLoading(false);
-      }
-    }
-  }, [handleScreenshotSubmit]);
-
-  useEffect(() => {
-    let unlisten: any;
-
-    const setupListener = async () => {
-      unlisten = await listen("captured-selection", async (event: any) => {
-        if (!screenshotInitiatedByThisContext.current) {
-          return;
-        }
-        if (isProcessingScreenshotRef.current) {
-          return;
-        }
-
-        isProcessingScreenshotRef.current = true;
-        const base64 = event.payload;
-        const config = screenshotConfigRef.current;
-
-        try {
-          if (config.mode === "auto") {
-            await handleScreenshotSubmit(base64 as string);
-          } else if (config.mode === "manual") {
-            await handleScreenshotSubmit(base64 as string);
-          }
-        } catch (error) {
-          console.error("Error processing selection:", error);
-        } finally {
-          setIsScreenshotLoading(false);
-          screenshotInitiatedByThisContext.current = false;
-          setTimeout(() => {
-            isProcessingScreenshotRef.current = false;
-          }, 100);
-        }
-      });
-    };
-
-    setupListener();
-    return () => {
-      if (unlisten) unlisten();
-    };
-  }, [handleScreenshotSubmit]);
-
-  useEffect(() => {
-    const unlisten = listen("capture-closed", () => {
-      setIsScreenshotLoading(false);
-      isProcessingScreenshotRef.current = false;
-      screenshotInitiatedByThisContext.current = false;
-    });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
-
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
@@ -961,13 +724,10 @@ export const useCompletion = () => {
   useEffect(() => {
     globalShortcuts.registerAudioCallback(toggleManualRecording);
     globalShortcuts.registerInputRef(inputRef.current as any);
-    globalShortcuts.registerScreenshotCallback(captureScreenshot);
   }, [
     globalShortcuts.registerAudioCallback,
     globalShortcuts.registerInputRef,
-    globalShortcuts.registerScreenshotCallback,
     toggleManualRecording,
-    captureScreenshot,
   ]);
 
   return {
@@ -995,9 +755,6 @@ export const useCompletion = () => {
     conversationHistory: state.conversationHistory,
     loadConversation,
     startNewConversation,
-    screenshotConfiguration,
-    setScreenshotConfiguration,
-    handleScreenshotSubmit,
     handleFileSelect,
     handleKeyPress,
     handlePaste,
@@ -1007,7 +764,5 @@ export const useCompletion = () => {
     setIsFilesPopoverOpen,
     onRemoveAllFiles,
     inputRef,
-    captureScreenshot,
-    isScreenshotLoading,
   };
 };

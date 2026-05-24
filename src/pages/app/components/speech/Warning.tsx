@@ -5,7 +5,6 @@ import {
   KeyboardIcon,
   AudioWaveformIcon,
   MicIcon,
-  CameraIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +37,6 @@ export const Warning = ({ isVadMode }: WarningProps) => {
 
       {isExpanded && (
         <div className="px-3 pb-3 space-y-3">
-          {/* Current Mode Info */}
           <div className="flex items-start gap-2 p-2 rounded-md bg-primary/5">
             {isVadMode ? (
               <AudioWaveformIcon className="w-4 h-4 text-primary mt-0.5" />
@@ -57,7 +55,6 @@ export const Warning = ({ isVadMode }: WarningProps) => {
             </div>
           </div>
 
-          {/* Keyboard Shortcuts */}
           <div className="space-y-2">
             <div className="flex items-center gap-1.5">
               <KeyboardIcon className="w-3 h-3 text-muted-foreground" />
@@ -109,48 +106,15 @@ export const Warning = ({ isVadMode }: WarningProps) => {
             </div>
           </div>
 
-          {/* Screenshot Feature */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5">
-              <CameraIcon className="w-3 h-3 text-muted-foreground" />
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                Screenshot Feature
-              </span>
-            </div>
-            <div className="p-2 rounded-md bg-primary/5 text-[10px] text-muted-foreground space-y-1">
-              <p>
-                Screenshot: Captures your current screen and attaches it to your
-                next transcription.
-              </p>
-              <p>
-                The AI will receive both the transcribed audio and the
-                screenshot image, allowing it to provide context-aware responses
-                based on what you're viewing.
-              </p>
-              <p className="text-[9px] opacity-70">
-                The screenshot is automatically cleared after each message is
-                sent.
-              </p>
-            </div>
-          </div>
-
-          {/* Tips */}
           <div className="text-[10px] text-muted-foreground space-y-1 pt-2 border-t border-border/50">
             <p>
-              <strong>Tip:</strong> Use Auto-detect for hands-free operation
-              during interviews.
+              <strong>Tip:</strong> Paste your PopOS screenshot (`Ctrl+V`) to quickly attach photos.
             </p>
             <p>
-              <strong>Tip:</strong> Use Manual mode when you need precise
-              control over what gets transcribed.
+              <strong>Tip:</strong> Use Auto-detect for hands-free operation during interviews.
             </p>
             <p>
-              <strong>Tip:</strong> Quick Actions let you send follow-up prompts
-              with one click.
-            </p>
-            <p>
-              <strong>Tip:</strong> Use Screenshot to share your screen context
-              with the AI for more relevant responses.
+              <strong>Tip:</strong> Quick Actions let you send follow-up prompts with one click.
             </p>
           </div>
         </div>

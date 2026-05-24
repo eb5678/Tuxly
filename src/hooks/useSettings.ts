@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
 import { useApp } from "@/contexts";
-import { extractVariables, safeLocalStorage, deleteAllConversations } from "@/lib";
-import { STORAGE_KEYS } from "@/config";
+import { extractVariables, deleteAllConversations } from "@/lib";
 
 export const useSettings = () => {
   const {
-    screenshotConfiguration,
-    setScreenshotConfiguration,
     allAiProviders,
     allSttProviders,
     selectedAIProvider,
@@ -18,18 +15,6 @@ export const useSettings = () => {
   const [variables, setVariables] = useState<{ key: string; value: string }[]>([]);
   const [sttVariables, setSttVariables] = useState<{ key: string; value: string }[]>([]);
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
-
-  const handleScreenshotModeChange = (value: "auto" | "manual") => {
-    const newConfig = { ...screenshotConfiguration, mode: value };
-    setScreenshotConfiguration(newConfig);
-    safeLocalStorage.setItem(STORAGE_KEYS.SCREENSHOT_CONFIG, JSON.stringify(newConfig));
-  };
-
-  const handleScreenshotEnabledChange = (enabled: boolean) => {
-    const newConfig = { ...screenshotConfiguration, enabled };
-    setScreenshotConfiguration(newConfig);
-    safeLocalStorage.setItem(STORAGE_KEYS.SCREENSHOT_CONFIG, JSON.stringify(newConfig));
-  };
 
   useEffect(() => {
     if (selectedAIProvider.provider) {
@@ -61,10 +46,6 @@ export const useSettings = () => {
   };
 
   return {
-    screenshotConfiguration,
-    setScreenshotConfiguration,
-    handleScreenshotModeChange,
-    handleScreenshotEnabledChange,
     allAiProviders,
     allSttProviders,
     selectedAIProvider,

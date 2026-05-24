@@ -31,10 +31,4 @@ export const DEFAULT_SHORTCUT_ACTIONS: ShortcutAction[] = [
     description: "Start/Stop recording audio",
     defaultKey: "alt+shift+a",
   },
-  {
-    id: "screenshot",
-    name: "Take Screenshot",
-    description: "Capture screenshot",
-    defaultKey: "alt+shift+s",
-  },
 ];

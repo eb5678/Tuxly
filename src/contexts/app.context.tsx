@@ -5,7 +5,7 @@ import {
   STORAGE_KEYS,
 } from "@/config";
 import { safeLocalStorage } from "@/lib";
-import { IContextType, ScreenshotConfig, TYPE_PROVIDER } from "@/types";
+import { IContextType, TYPE_PROVIDER } from "@/types";
 import curl2Json from "@bany/curl-to-json";
 import {
   ReactNode,
@@ -47,10 +47,8 @@ const validateAndProcessCurlProviders = (
   }
 };
 
-// Create the context
 const AppContext = createContext<IContextType | undefined>(undefined);
 
-// Create the provider component
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [systemPrompt, setSystemPrompt] = useState<string>(() => {
     const saved = safeLocalStorage.getItem(STORAGE_KEYS.SYSTEM_PROMPT);
@@ -68,7 +66,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       try {
         return JSON.parse(savedDevices);
       } catch {
-        // Return default on parse error
+        // Return default
       }
     }
 
@@ -78,10 +76,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
   });
 
-  // AI Providers
-  const [customAiProviders, setCustomAiProviders] = useState<TYPE_PROVIDER[]>(
-    []
-  );
+  const [customAiProviders, setCustomAiProviders] = useState<TYPE_PROVIDER[]>([]);
   const [selectedAIProvider, setSelectedAIProvider] = useState<{
     provider: string;
     variables: Record<string, string>;
@@ -90,10 +85,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     variables: {},
   });
 
-  // STT Providers
-  const [customSttProviders, setCustomSttProviders] = useState<TYPE_PROVIDER[]>(
-    []
-  );
+  const [customSttProviders, setCustomSttProviders] = useState<TYPE_PROVIDER[]>([]);
   const [selectedSttProvider, setSelectedSttProvider] = useState<{
     provider: string;
     variables: Record<string, string>;
@@ -102,54 +94,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     variables: {},
   });
 
-  const [screenshotConfiguration, setScreenshotConfiguration] =
-    useState<ScreenshotConfig>({
-      mode: "manual",
-      enabled: true,
-    });
-
   const [supportsImages, setSupportsImagesState] = useState<boolean>(() => {
     const stored = safeLocalStorage.getItem(STORAGE_KEYS.SUPPORTS_IMAGES);
     return stored === null ? true : stored === "true";
   });
 
-  // Wrapper to sync supportsImages to localStorage
   const setSupportsImages = (value: boolean) => {
     setSupportsImagesState(value);
     safeLocalStorage.setItem(STORAGE_KEYS.SUPPORTS_IMAGES, String(value));
   };
 
-  // Function to load AI, STT, system prompt and screenshot config data from storage
   const loadData = () => {
-    // Load system prompt
-    const savedSystemPrompt = safeLocalStorage.getItem(
-      STORAGE_KEYS.SYSTEM_PROMPT
-    );
+    const savedSystemPrompt = safeLocalStorage.getItem(STORAGE_KEYS.SYSTEM_PROMPT);
     if (savedSystemPrompt !== null) {
       setSystemPrompt(savedSystemPrompt);
     } else {
       setSystemPrompt(DEFAULT_SYSTEM_PROMPT);
     }
 
-    // Load screenshot configuration
-    const savedScreenshotConfig = safeLocalStorage.getItem(
-      STORAGE_KEYS.SCREENSHOT_CONFIG
-    );
-    if (savedScreenshotConfig) {
-      try {
-        const parsed = JSON.parse(savedScreenshotConfig);
-        if (typeof parsed === "object" && parsed !== null) {
-          setScreenshotConfiguration({
-            mode: parsed.mode || "manual",
-            enabled: parsed.enabled !== undefined ? parsed.enabled : false,
-          });
-        }
-      } catch {
-        console.warn("Failed to parse screenshot configuration");
-      }
-    }
-
-    // Load custom AI providers
     const savedAi = safeLocalStorage.getItem(STORAGE_KEYS.CUSTOM_AI_PROVIDERS);
     let aiList: TYPE_PROVIDER[] = [];
     if (savedAi) {
@@ -157,36 +119,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
     setCustomAiProviders(aiList);
 
-    // Load custom STT providers
-    const savedStt = safeLocalStorage.getItem(
-      STORAGE_KEYS.CUSTOM_SPEECH_PROVIDERS
-    );
+    const savedStt = safeLocalStorage.getItem(STORAGE_KEYS.CUSTOM_SPEECH_PROVIDERS);
     let sttList: TYPE_PROVIDER[] = [];
     if (savedStt) {
       sttList = validateAndProcessCurlProviders(savedStt, "STT");
     }
     setCustomSttProviders(sttList);
 
-    // Load selected AI provider
-    const savedSelectedAi = safeLocalStorage.getItem(
-      STORAGE_KEYS.SELECTED_AI_PROVIDER
-    );
+    const savedSelectedAi = safeLocalStorage.getItem(STORAGE_KEYS.SELECTED_AI_PROVIDER);
     if (savedSelectedAi) {
       setSelectedAIProvider(JSON.parse(savedSelectedAi));
     }
 
-    // Load selected STT provider
-    const savedSelectedStt = safeLocalStorage.getItem(
-      STORAGE_KEYS.SELECTED_STT_PROVIDER
-    );
+    const savedSelectedStt = safeLocalStorage.getItem(STORAGE_KEYS.SELECTED_STT_PROVIDER);
     if (savedSelectedStt) {
       setSelectedSttProvider(JSON.parse(savedSelectedStt));
     }
 
-    // Load selected audio devices
-    const savedAudioDevices = safeLocalStorage.getItem(
-      STORAGE_KEYS.SELECTED_AUDIO_DEVICES
-    );
+    const savedAudioDevices = safeLocalStorage.getItem(STORAGE_KEYS.SELECTED_AUDIO_DEVICES);
     if (savedAudioDevices) {
       try {
         const parsed = JSON.parse(savedAudioDevices);
@@ -199,15 +149,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Load data on mount
   useEffect(() => {
     loadData();
   }, []);
 
-  // Listen to storage events for real-time sync (e.g., multi-tab)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      // Sync supportsImages across windows
       if (e.key === STORAGE_KEYS.SUPPORTS_IMAGES && e.newValue !== null) {
         setSupportsImagesState(e.newValue === "true");
       }
@@ -218,7 +165,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         e.key === STORAGE_KEYS.CUSTOM_SPEECH_PROVIDERS ||
         e.key === STORAGE_KEYS.SELECTED_STT_PROVIDER ||
         e.key === STORAGE_KEYS.SYSTEM_PROMPT ||
-        e.key === STORAGE_KEYS.SCREENSHOT_CONFIG ||
         e.key === STORAGE_KEYS.SELECTED_AUDIO_DEVICES
       ) {
         loadData();
@@ -228,10 +174,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // Check if the current AI provider/model supports images
   useEffect(() => {
     const checkImageSupport = async () => {
-        // For custom AI providers, check if curl contains {{IMAGE}}
         const provider = allAiProviders.find(
           (p) => p.id === selectedAIProvider.provider
         );
@@ -246,7 +190,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     checkImageSupport();
   }, [selectedAIProvider.provider]);
 
-  // Sync selected AI to localStorage
   useEffect(() => {
     if (selectedAIProvider.provider) {
       safeLocalStorage.setItem(
@@ -256,7 +199,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [selectedAIProvider]);
 
-  // Sync selected STT to localStorage
   useEffect(() => {
     if (selectedSttProvider.provider) {
       safeLocalStorage.setItem(
@@ -266,13 +208,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [selectedSttProvider]);
 
-  // Computed all AI providers
   const allAiProviders: TYPE_PROVIDER[] = [
     ...AI_PROVIDERS,
     ...customAiProviders,
   ];
 
-  // Computed all STT providers
   const allSttProviders: TYPE_PROVIDER[] = [
     ...SPEECH_TO_TEXT_PROVIDERS,
     ...customSttProviders,
@@ -290,14 +230,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-      const selectedProvider = allAiProviders.find((p) => p.id === provider);
-      if (selectedProvider) {
-        const hasImageSupport =
-          selectedProvider.curl?.includes("{{IMAGE}}") ?? false;
-        setSupportsImages(hasImageSupport);
-      } else {
-        setSupportsImages(true);
-      }
+    const selectedProvider = allAiProviders.find((p) => p.id === provider);
+    if (selectedProvider) {
+      const hasImageSupport = selectedProvider.curl?.includes("{{IMAGE}}") ?? false;
+      setSupportsImages(hasImageSupport);
+    } else {
+      setSupportsImages(true);
+    }
 
     setSelectedAIProvider((prev) => ({
       ...prev,
@@ -306,7 +245,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
-  // Setter for selected STT with validation
   const onSetSelectedSttProvider = ({
     provider,
     variables,
@@ -333,8 +271,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     customSttProviders,
     selectedSttProvider,
     onSetSelectedSttProvider,
-    screenshotConfiguration,
-    setScreenshotConfiguration,
     loadData,
     selectedAudioDevices,
     setSelectedAudioDevices,
@@ -347,10 +283,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
 export const useApp = () => {
   const context = useContext(AppContext);
-
   if (!context) {
     throw new Error("useApp must be used within a AppProvider");
   }
-
   return context;
 };

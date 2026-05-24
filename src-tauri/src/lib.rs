@@ -1,4 +1,3 @@
-mod capture;
 mod db;
 mod shortcuts;
 mod window;
@@ -6,7 +5,6 @@ mod speaker;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use tokio::task::JoinHandle;
-use capture::CaptureState;
 use speaker::VadConfig;
 
 #[derive(Default)]
@@ -30,7 +28,6 @@ pub fn run() {
                 .build(),
         )
         .manage(AudioState::default())
-        .manage(CaptureState::default())
         .manage(shortcuts::WindowVisibility { is_hidden: Mutex::new(false) })
         .manage(shortcuts::RegisteredShortcuts::default())
         .manage(shortcuts::MoveWindowState::default())
@@ -47,10 +44,6 @@ pub fn run() {
             window::open_dashboard,
             window::toggle_dashboard,
             window::move_window,
-            capture::capture_to_base64,
-            capture::start_screen_capture,
-            capture::capture_selected_area,
-            capture::close_overlay_window,
             shortcuts::check_shortcuts_registered,
             shortcuts::get_registered_shortcuts,
             shortcuts::update_shortcuts,

@@ -4,18 +4,15 @@ import { useCallback, useEffect, useRef } from "react";
 import { getShortcutsConfig } from "@/lib";
 
 let globalEventListeners: { [key: string]: UnlistenFn | undefined } = {};
-let lastScreenshotEventTime = 0;
 
 let globalInputRef: HTMLInputElement | null = null;
 let globalAudioCallback: (() => void) | null = null;
-let globalScreenshotCallback: (() => void | Promise<void>) | null = null;
 let globalSystemAudioCallback: (() => void) | null = null;
 let globalCustomShortcutCallbacks: Map<string, () => void> = new Map();
 
 export const useGlobalShortcuts = () => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const audioCallbackRef = useRef<(() => void) | null>(null);
-  const screenshotCallbackRef = useRef<(() => void) | null>(null);
   const systemAudioCallbackRef = useRef<(() => void) | null>(null);
   const customShortcutCallbacksRef = useRef<Map<string, () => void>>(new Map());
 
@@ -55,11 +52,6 @@ export const useGlobalShortcuts = () => {
     globalAudioCallback = callback;
   }, []);
 
-  const registerScreenshotCallback = useCallback((callback: () => void | Promise<void>) => {
-    screenshotCallbackRef.current = callback;
-    globalScreenshotCallback = callback;
-  }, []);
-
   const registerSystemAudioCallback = useCallback((callback: () => void) => {
     systemAudioCallbackRef.current = callback;
     globalSystemAudioCallback = callback;
@@ -86,15 +78,6 @@ export const useGlobalShortcuts = () => {
 
         globalEventListeners.audio = await listen("start-audio-recording", () => {
           if (globalAudioCallback) globalAudioCallback();
-        });
-
-        globalEventListeners.screenshot = await listen("trigger-screenshot", () => {
-          const now = Date.now();
-          if (now - lastScreenshotEventTime < 300) return;
-          lastScreenshotEventTime = now;
-          if (globalScreenshotCallback) {
-            Promise.resolve(globalScreenshotCallback()).catch(console.error);
-          }
         });
 
         globalEventListeners.systemAudio = await listen("toggle-system-audio", () => {
@@ -150,9 +133,6 @@ export const useGlobalShortcuts = () => {
             case "audio_recording":
               if (globalAudioCallback) globalAudioCallback();
               break;
-            case "screenshot":
-              if (globalScreenshotCallback) Promise.resolve(globalScreenshotCallback()).catch(console.error);
-              break;
             case "focus_input":
               setTimeout(() => globalInputRef?.focus(), 50);
               break;
@@ -180,7 +160,6 @@ export const useGlobalShortcuts = () => {
     updateShortcuts,
     registerInputRef,
     registerAudioCallback,
-    registerScreenshotCallback,
     registerSystemAudioCallback,
     registerCustomShortcutCallback,
     unregisterCustomShortcutCallback,
