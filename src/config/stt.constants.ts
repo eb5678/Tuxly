@@ -1,11 +1,17 @@
 export const SPEECH_TO_TEXT_PROVIDERS = [
   {
-    id: "openai-whisper",
-    name: "OpenAI Whisper",
-    curl: `curl -X POST "https://api.openai.com/v1/audio/transcriptions" \\
+    id: "openrouter-stt",
+    name: "OpenRouter STT",
+    curl: `curl https://openrouter.ai/api/v1/audio/transcriptions \\
+      -H "Content-Type: application/json" \\
       -H "Authorization: Bearer {{API_KEY}}" \\
-      -F "file={{AUDIO}}" \\
-      -F "model={{MODEL}}"`,
+      -d '{
+        "model": "{{MODEL}}",
+        "input_audio": {
+          "data": "{{AUDIO}}",
+          "format": "wav"
+        }
+      }'`,
     responseContentPath: "text",
     streaming: false,
   }

@@ -3,7 +3,7 @@ Version=1.0
 Type=Application
 Name=Pluely
 Comment=The Open Source Alternative to Cluely - Lightning-fast, privacy-first AI assistant for meetings and conversations
-Exec=env GDK_BACKEND=wayland WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 pluely
+Exec=env GDK_BACKEND=wayland pluely
 Icon=pluely
 Terminal=false
 Categories=Utility;AudioVideo;Audio;Development;Office;
