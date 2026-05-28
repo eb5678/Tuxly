@@ -8,8 +8,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::task::{Poll, Waker};
 use std::thread;
-use tracing::error;
-use tracing::warn;
+use tracing::{error, warn};
 use libpulse_binding as pulse;
 use libpulse_simple_binding as psimple;
 
@@ -25,8 +24,7 @@ pub fn get_input_devices() -> Result<Vec<AudioDevice>> {
     let devices = Rc::new(RefCell::new(Vec::new()));
     let done = Rc::new(RefCell::new(false));
 
-    let mut mainloop =
-        Mainloop::new().ok_or_else(|| anyhow!("Failed to create PulseAudio mainloop"))?;
+    let mut mainloop = Mainloop::new().ok_or_else(|| anyhow!("Failed to create PulseAudio mainloop"))?;
     let mut context = Context::new(&mainloop, "pluely-device-enum")
         .ok_or_else(|| anyhow!("Failed to create PulseAudio context"))?;
 
@@ -124,8 +122,7 @@ pub fn get_output_devices() -> Result<Vec<AudioDevice>> {
     let devices = Rc::new(RefCell::new(Vec::new()));
     let done = Rc::new(RefCell::new(false));
 
-    let mut mainloop =
-        Mainloop::new().ok_or_else(|| anyhow!("Failed to create PulseAudio mainloop"))?;
+    let mut mainloop = Mainloop::new().ok_or_else(|| anyhow!("Failed to create PulseAudio mainloop"))?;
     let mut context = Context::new(&mainloop, "pluely-device-enum")
         .ok_or_else(|| anyhow!("Failed to create PulseAudio context"))?;
 
@@ -148,7 +145,6 @@ pub fn get_output_devices() -> Result<Vec<AudioDevice>> {
         }
     }
 
-    // Get default sink for comparison
     let default_sink: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
     let default_sink_clone = default_sink.clone();
     let done_clone = done.clone();
@@ -218,23 +214,95 @@ pub fn get_output_devices() -> Result<Vec<AudioDevice>> {
     Ok(Rc::try_unwrap(devices).unwrap().into_inner())
 }
 
+fn get_default_sink_name() -> Result<String> {
+    let done = Rc::new(RefCell::new(false));
+    let default_sink = Rc::new(RefCell::new(None));
+
+    let mut mainloop = Mainloop::new().ok_or_else(|| anyhow!("Failed to create PulseAudio mainloop"))?;
+    let mut context = Context::new(&mainloop, "pluely-get-default-sink")
+        .ok_or_else(|| anyhow!("Failed to create PulseAudio context"))?;
+
+    context.connect(None, pulse::context::FlagSet::NOFLAGS, None)
+        .map_err(|_| anyhow!("Failed to connect to PulseAudio"))?;
+
+    loop {
+        match mainloop.iterate(true) {
+            pulse::mainloop::standard::IterateResult::Success(_) => {}
+            _ => return Err(anyhow!("Failed to iterate mainloop")),
+        }
+
+        match context.get_state() {
+            pulse::context::State::Ready => break,
+            pulse::context::State::Failed | pulse::context::State::Terminated => {
+                return Err(anyhow!("PulseAudio context failed"));
+            }
+            _ => {}
+        }
+    }
+
+    let default_sink_clone = default_sink.clone();
+    let done_clone = done.clone();
+
+    let introspector = context.introspect();
+    let op = introspector.get_server_info(move |info| {
+        if let Some(name) = &info.default_sink_name {
+            *default_sink_clone.borrow_mut() = Some(name.to_string());
+        }
+        *done_clone.borrow_mut() = true;
+    });
+
+    while !*done.borrow() {
+        match mainloop.iterate(true) {
+            pulse::mainloop::standard::IterateResult::Success(_) => {}
+            _ => break,
+        }
+    }
+    drop(op);
+
+    context.disconnect();
+    mainloop.quit(pulse::def::Retval(0));
+
+    Rc::try_unwrap(default_sink)
+        .map_err(|_| anyhow!("Rc unwrap failed"))?
+        .into_inner()
+        .ok_or_else(|| anyhow!("No default sink found"))
+}
+
+fn get_default_monitor_source() -> Option<String> {
+    match get_default_sink_name() {
+        Ok(sink) => {
+            let suffix = if sink.ends_with(".monitor") { "" } else { ".monitor" };
+            Some(format!("{}{}", sink, suffix))
+        }
+        Err(e) => {
+            error!("PulseAudio: Failed to resolve default output sink: {}", e);
+            None
+        }
+    }
+}
+
 pub struct SpeakerInput {
     source_name: Option<String>,
 }
 
 impl SpeakerInput {
     pub fn new(device_id: Option<String>) -> Result<Self> {
-        // For Linux, device_id is the PulseAudio sink name for output devices
         let source_name = match device_id {
+            Some(ref id) if id == "@DEFAULT_SOURCE@" => {
+                // None instructs PulseAudio to record from local default input (Microphone)
+                None
+            }
             Some(ref id) if !id.is_empty() && id != "default" => {
-                // If it's a microphone (starts with alsa_input or source), do NOT append .monitor
                 if id.contains(".monitor") || id.starts_with("alsa_input") || id.contains("source") {
                     Some(id.clone())
                 } else {
                     Some(format!("{}.monitor", id))
                 }
             }
-            _ => None,
+            _ => {
+                // Get dynamic sink target for System Speaker capture
+                get_default_monitor_source()
+            }
         };
         Ok(Self { source_name })
     }
@@ -326,7 +394,7 @@ impl SpeakerStream {
         let spec = Spec {
             format: Format::F32le,
             channels: 1,
-            rate: 44100, // Fixed: Use 44100 Hz to match macOS/Windows
+            rate: 44100,
         };
 
         if !spec.is_valid() {
@@ -334,27 +402,23 @@ impl SpeakerStream {
             return Err(anyhow!("Invalid audio specification"));
         }
 
-        let final_source = source_name
-            .map(|s| s.to_string())
-            .or_else(get_default_monitor_source);
-
         let init_result: Result<(Simple, u32)> = (|| {
             let simple = Simple::new(
-                None,                    // Use default server
+                None,                    // Use default Pulse server
                 "pluely",                // Application name
                 Direction::Record,       // Record direction
-                final_source.as_deref(), // Source name (monitor)
+                source_name,             // Target device/monitor interface
                 "System Audio Capture",  // Stream description
                 &spec,                   // Sample specification
-                None,                    // Channel map (use default)
-                None,                    // Buffer attributes (use default)
+                None,
+                None,
             )
             .map_err(|e| {
                 error!(
-                    "[capture_audio_loop] Failed to create PulseAudio connection: {}",
-                    e
+                    "[capture_audio_loop] Failed to connect stream to source ({:?}): {}",
+                    source_name, e
                 );
-                anyhow!("Failed to create PulseAudio simple connection: {}", e)
+                anyhow!("Failed to create PulseAudio connection: {}", e)
             })?;
 
             Ok((simple, spec.rate))
@@ -363,8 +427,6 @@ impl SpeakerStream {
         match init_result {
             Ok((simple, sample_rate)) => {
                 let _ = init_tx.send(Ok(sample_rate));
-
-                // Buffer for reading audio data (1024 samples * 4 bytes/sample)
                 let mut buffer = vec![0u8; 4096];
 
                 loop {
@@ -374,7 +436,6 @@ impl SpeakerStream {
 
                     match simple.read(&mut buffer) {
                         Ok(_) => {
-                            // Convert byte buffer to f32 samples
                             let samples: Vec<f32> = buffer
                                 .chunks_exact(4)
                                 .map(|chunk| {
@@ -383,16 +444,14 @@ impl SpeakerStream {
                                 .collect();
 
                             if !samples.is_empty() {
-                                // Consistent buffer overflow handling
                                 let dropped = {
                                     let mut queue = sample_queue.lock().unwrap();
-                                    let max_buffer_size = 131072; // 128KB buffer (matching macOS/Windows)
+                                    const MAX_BUFFER_SIZE: usize = 131072;
 
                                     queue.extend(samples.iter());
 
-                                    // If buffer exceeds maximum, drop oldest samples
-                                    if queue.len() > max_buffer_size {
-                                        let to_drop = queue.len() - max_buffer_size;
+                                    if queue.len() > MAX_BUFFER_SIZE {
+                                        let to_drop = queue.len() - MAX_BUFFER_SIZE;
                                         queue.drain(0..to_drop);
                                         to_drop
                                     } else {
@@ -401,10 +460,9 @@ impl SpeakerStream {
                                 };
 
                                 if dropped > 0 {
-                                    warn!("[capture_audio_loop] Linux buffer overflow - dropped {} samples", dropped);
+                                    warn!("[capture_audio_loop] Buffer overflow - dropped {} samples", dropped);
                                 }
 
-                                // Wake up consumer
                                 {
                                     let mut state = waker_state.lock().unwrap();
                                     if !state.has_data {
@@ -425,18 +483,12 @@ impl SpeakerStream {
                 }
             }
             Err(e) => {
-                error!("[capture_audio_loop] PulseAudio init failed: {}", e);
+                error!("[capture_audio_loop] PulseAudio initiation aborted: {}", e);
                 let _ = init_tx.send(Err(e));
             }
         }
         Ok(())
     }
-}
-
-// BUG FIX: Only fallback to monitor if NO device ID is provided. 
-// We will explicitly pass @DEFAULT_SOURCE@ from the frontend for mics.
-fn get_default_monitor_source() -> Option<String> {
-    Some("@DEFAULT_MONITOR@".to_string())
 }
 
 impl Drop for SpeakerStream {

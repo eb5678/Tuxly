@@ -337,12 +337,18 @@ export const useCompletion = () => {
         const vadConfig = {
           enabled: false, 
           max_recording_duration_secs: 180,
-          box_size: 1024, sensitivity_rms: 0.012, peak_threshold: 0.035, silence_chunks: 45, min_speech_chunks: 7, pre_speech_chunks: 12, noise_gate_threshold: 0.003
+          hop_size: 1024,
+          sensitivity_rms: 0.012, 
+          peak_threshold: 0.035, 
+          silence_chunks: 45, 
+          min_speech_chunks: 7, 
+          pre_speech_chunks: 12, 
+          noise_gate_threshold: 0.003
         };
 
         const deviceId = selectedAudioDevices?.input?.id && selectedAudioDevices.input.id !== "default"
           ? selectedAudioDevices.input.id
-          : null;
+          : "@DEFAULT_SOURCE@";
 
         await invoke("start_system_audio_capture", { vadConfig, deviceId });
 
@@ -593,14 +599,12 @@ export const useCompletion = () => {
       const files = e.clipboardData?.files;
       let hasImages = false;
 
-      // Check standard lists
       if (items && items.length > 0) {
         hasImages = Array.from(items).some((item) => item.type.startsWith("image/"));
       } else if (files && files.length > 0) {
         hasImages = Array.from(files).some((file) => file.type.startsWith("image/"));
       }
 
-      // Check async clipboard
       if (!hasImages) {
         try {
           const clipboardItems = await navigator.clipboard.read().catch(() => []);
