@@ -9,17 +9,6 @@ export function getByPath(obj: any, path: string): any {
     .reduce((o, k) => (o || {})[k], obj);
 }
 
-export function setByPath(obj: any, path: string, value: any): void {
-  const keys = path.split(".");
-  let current = obj;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const key = keys[i].replace(/\[(\d+)\]/g, ".$1");
-    if (!current[key]) current[key] = /^\d+$/.test(keys[i + 1]) ? [] : {};
-    current = current[key];
-  }
-  current[keys[keys.length - 1].replace(/\[(\d+)\]/g, ".$1")] = value;
-}
-
 export async function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -69,10 +58,6 @@ export function extractVariables(
 
 /**
  * Recursively processes a user message template to replace placeholders for text and images.
- * @param template The user message template object.
- * @param userMessage The user's text message.
- * @param imagesBase64 An array of base64 encoded images.
- * @returns The processed user message object.
  */
 export function processUserMessageTemplate(
   template: any,
@@ -130,11 +115,6 @@ export function processUserMessageTemplate(
 
 /**
  * Builds a dynamic messages array from a template, incorporating history and the current user message.
- * @param messagesTemplate The message template array from the cURL configuration.
- * @param history An array of previous messages in the conversation.
- * @param userMessage The user's current text message.
- * @param imagesBase64 An array of base64 encoded images for the current message.
- * @returns The fully constructed messages array.
  */
 export function buildDynamicMessages(
   messagesTemplate: any[],
@@ -165,9 +145,6 @@ export function buildDynamicMessages(
 
 /**
  * Recursively walks through an object and replaces variable placeholders.
- * @param node The object or value to process.
- * @param variables A key-value map of variables to replace.
- * @returns The processed object.
  */
 export function deepVariableReplacer(
   node: any,
@@ -195,42 +172,29 @@ export function deepVariableReplacer(
 
 /**
  * Extracts content from a streaming API response chunk by trying a series of common JSON paths.
- * This makes the system more resilient to variations in streaming formats.
- * @param chunk The parsed JSON object from a stream line.
- * @param defaultPath The default, non-streaming content path for the provider.
- * @returns The extracted text content, or null if not found.
  */
 export function getStreamingContent(
   chunk: any,
   defaultPath: string
 ): string | null {
-  // A set of possible paths to check for streaming content.
-  // Using a Set automatically handles duplicates.
   const possiblePaths = new Set([
-    // 1. First, try a common modification for OpenAI-like providers.
     defaultPath.replace(".message.", ".delta."),
-    // 2. Then, add other common patterns.
-    "choices[0].delta.content", // OpenAI, Groq, Mistral, Perplexity
-    "candidates[0].content.parts[0].text", // Gemini
-    "delta.text", // Claude
-    "text", // Cohere
-    // 3. Finally, use the original path as a fallback (for Gemini and others).
+    "choices[0].delta.content", 
+    "candidates[0].content.parts[0].text", 
+    "delta.text", 
+    "text", 
     defaultPath,
   ]);
 
   for (const path of possiblePaths) {
-    // Skip empty or null paths
     if (!path) continue;
 
     const content = getByPath(chunk, path);
 
-    // We only care about non-empty string content.
-    // Some paths might resolve to objects (e.g., `choices[0].delta`), so we check the type.
     if (typeof content === "string" && content) {
       return content;
     }
   }
 
-  // Return null if no content is found after trying all paths.
   return null;
 }

@@ -8,7 +8,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Listener, Manager};
-use tauri_plugin_shell::ShellExt;
 use tracing::{error, warn};
 
 #[tauri::command]
@@ -41,10 +40,7 @@ pub async fn start_system_audio_capture(
 
     if !(8000..=96000).contains(&sr) {
         error!("Invalid sample rate: {}", sr);
-        return Err(format!(
-            "Invalid sample rate: {}. Expected 8000-96000 Hz",
-            sr
-        ));
+        return Err(format!("Invalid sample rate: {}. Expected 8000-96000 Hz", sr));
     }
 
     let app_clone = app.clone();
@@ -96,10 +92,7 @@ async fn run_manual_capture(
         stop_flag_for_listener.store(true, Ordering::Release);
     });
 
-    let _ = app.emit(
-        "continuous-recording-start",
-        max_duration_secs,
-    );
+    let _ = app.emit("continuous-recording-start", max_duration_secs);
 
     loop {
         if stop_flag.load(Ordering::Acquire) {
@@ -133,8 +126,7 @@ async fn run_manual_capture(
                     }
                 }
             }
-            _ = tokio::time::sleep(tokio::time::Duration::from_millis(10)) => {
-            }
+            _ = tokio::time::sleep(Duration::from_millis(10)) => {}
         }
     }
 
@@ -203,10 +195,7 @@ fn normalize_audio_level(samples: &[f32], target_rms: f32) -> Vec<f32> {
 
 fn samples_to_wav_b64(sample_rate: u32, mono_f32: &[f32]) -> Result<String, String> {
     if !(8000..=96000).contains(&sample_rate) {
-        return Err(format!(
-            "Invalid sample rate: {}. Expected 8000-96000 Hz",
-            sample_rate
-        ));
+        return Err(format!("Invalid sample rate: {}. Expected 8000-96000 Hz", sample_rate));
     }
     if mono_f32.is_empty() {
         return Err("Empty audio buffer".to_string());
@@ -242,12 +231,12 @@ pub async fn stop_system_audio_capture(app: AppHandle) -> Result<(), String> {
             task.abort();
         }
     }
-    tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
     *state
         .is_capturing
         .lock()
         .map_err(|e| format!("Failed to update capturing state: {}", e))? = false;
-    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
     let _ = app.emit("capture-stopped", ());
     Ok(())
 }
@@ -255,56 +244,8 @@ pub async fn stop_system_audio_capture(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub async fn manual_stop_continuous(app: AppHandle) -> Result<(), String> {
     let _ = app.emit("manual-stop-continuous", ());
-    tokio::time::sleep(tokio::time::Duration::from_millis(20)).await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
     Ok(())
-}
-
-#[tauri::command]
-pub fn check_system_audio_access(_app: AppHandle) -> Result<bool, String> {
-    match SpeakerInput::new() {
-        Ok(_) => Ok(true),
-        Err(e) => {
-            error!("System audio access check failed: {}", e);
-            Ok(false)
-        }
-    }
-}
-
-#[tauri::command]
-pub async fn request_system_audio_access(app: AppHandle) -> Result<(), String> {
-    let commands = ["pavucontrol", "gnome-control-center sound"];
-    let mut opened = false;
-    for cmd in &commands {
-        if app.shell().command(cmd).spawn().is_ok() {
-            opened = true;
-            break;
-        }
-    }
-    if !opened {
-        warn!("Failed to open audio settings on Linux");
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn get_capture_status(app: AppHandle) -> Result<bool, String> {
-    let state = app.state::<crate::AudioState>();
-    let is_capturing = *state
-        .is_capturing
-        .lock()
-        .map_err(|e| format!("Failed to get capture status: {}", e))?;
-    Ok(is_capturing)
-}
-
-#[tauri::command]
-pub fn get_audio_sample_rate(_app: AppHandle) -> Result<u32, String> {
-    let input = SpeakerInput::new().map_err(|e| {
-        error!("Failed to create speaker input: {}", e);
-        format!("Failed to access system audio: {}", e)
-    })?;
-    let stream = input.stream();
-    let sr = stream.sample_rate();
-    Ok(sr)
 }
 
 #[tauri::command]

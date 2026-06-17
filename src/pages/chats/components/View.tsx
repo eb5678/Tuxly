@@ -28,7 +28,7 @@ import { useState, useEffect } from "react";
 import moment from "moment";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageLayout } from "@/layouts";
-import { useHistory, useChatCompletion, useSystemPrompts } from "@/hooks";
+import { useHistory, useSystemPrompts, useCompletion } from "@/hooks";
 import { useApp } from "@/contexts";
 import {
   DeleteConfirmationDialog,
@@ -55,17 +55,15 @@ const View = () => {
   } = useHistory();
 
   const { prompts, selectedPromptId, handleSelectPrompt } = useSystemPrompts();
-
-  const completion = useChatCompletion(
-    conversationId as string,
-    messages,
-    setMessages
-  );
+  const completion = useCompletion();
 
   useEffect(() => {
     const getMessages = async () => {
       const conversation = await getConversationById(conversationId as string);
-      setMessages(conversation || null);
+      if (conversation) {
+        setMessages(conversation);
+        completion.loadConversation(conversation);
+      }
     };
     getMessages();
   }, [conversationId]);
@@ -75,12 +73,16 @@ const View = () => {
     navigate(-1);
   };
 
+  const activeMessages = completion.conversationHistory.length > 0 
+    ? completion.conversationHistory 
+    : (messages?.messages || []);
+
   return (
     <PageLayout
       isMainTitle={false}
       allowBackButton={true}
-      title={messages?.title || ""}
-      description={`${messages?.messages.length} messages in this conversation`}
+      title={messages?.title || "Conversations"}
+      description={`${activeMessages.length} messages`}
       rightSlot={
         <div className="flex flex-row items-center gap-2">
           <Select 
@@ -148,7 +150,7 @@ const View = () => {
         </div>
       }
     >
-      {messages?.messages.length === 0 ? (
+      {activeMessages.length === 0 ? (
         <Empty
           isLoading={false}
           icon={MessageCircleIcon}
@@ -156,8 +158,8 @@ const View = () => {
           description="Start a new message to get started"
         />
       ) : (
-        <div className="flex flex-col gap-4 pb-24 px-2">
-          {messages?.messages.map((message, index, array) => {
+        <div ref={completion.scrollAreaRef as any} className="flex flex-col gap-4 pb-32 px-2 overflow-y-auto max-h-[calc(100vh-14rem)]">
+          {activeMessages.map((message, index, array) => {
             const isUser = message.role === "user";
             const showDate =
               index === 0 ||
@@ -165,7 +167,7 @@ const View = () => {
                 moment(array[index - 1]?.timestamp).format("YYYY-MM-DD");
 
             return (
-              <div key={message.id}>
+              <div key={message.id || index}>
                 {showDate && (
                   <Badge
                     variant={"outline"}
@@ -210,20 +212,45 @@ const View = () => {
               </div>
             );
           })}
-          <div ref={completion.messagesEndRef} />
+
+          {(completion.isLoading || completion.response) && (
+            <div className="flex gap-3 justify-start">
+              <div className="flex-shrink-0">
+                <div className="size-7 lg:size-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <SparklesIcon className="size-3 lg:size-4 text-primary" />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1 max-w-[70%] items-start">
+                <Card className="p-3 text-xs lg:text-sm shadow-none !bg-muted/50 dark:!bg-muted/30 rounded-tl-sm w-full">
+                  {completion.response ? (
+                    <Markdown>{completion.response}</Markdown>
+                  ) : (
+                    <div 
+                      ref={completion.streamingTextRef as any}
+                      className="whitespace-pre-wrap font-sans text-xs lg:text-sm text-foreground leading-relaxed"
+                    >
+                      <span className="text-muted-foreground italic flex items-center gap-1.5">
+                        <Loader2 className="h-3 w-3 animate-spin text-primary"/> Generating...
+                      </span>
+                    </div>
+                  )}
+                </Card>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      <div className="absolute bottom-0 left-0 right-0 bg-background/10 backdrop-blur">
+      <div className="absolute bottom-0 left-0 right-0 bg-background/5 p-4 border-t border-border/20 backdrop-blur-md">
         {completion.error && (
-          <div className="px-4 pt-3 pb-0">
+          <div className="pb-3">
             <div className="p-2 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive">
               <strong>Error:</strong> {completion.error}
             </div>
           </div>
         )}
 
-        <div className="relative flex items-start gap-2 p-4">
+        <div className="relative flex items-start gap-2">
           <div className="flex-1 relative">
             {completion.isRecording ? (
               <AudioRecorder
@@ -256,9 +283,9 @@ const View = () => {
                 </div>
 
                 <Textarea
-                  ref={completion.inputRef}
+                  ref={completion.inputRef as any}
                   placeholder="Type a message..."
-                  className="pr-12 pl-2 resize-none pb-12 pt-3"
+                  className="pr-12 pl-22 resize-none pb-12 pt-3"
                   rows={2}
                   value={completion.input}
                   onChange={(e) => completion.setInput(e.target.value)}

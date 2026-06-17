@@ -6,4 +6,3 @@ export * from "./TextInput";
 export * from "./Sidebar";
 export * from "./Empty";
 export * from "./Markdown/copy-button";
-export * from "./Icons";

@@ -1,13 +1,10 @@
-// src/hooks/useApp.ts
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useTitles } from "@/hooks";
 import { safeLocalStorage, migrateLocalStorageToSQLite } from "@/lib";
 import { getShortcutsConfig } from "@/lib/storage";
 import { invoke } from "@tauri-apps/api/core";
 
 export const useApp = () => {
-  const [isHidden, setIsHidden] = useState(false);
-  
   // Track initialization to prevent terminal spam in Strict Mode
   const shortcutsInitialized = useRef(false);
   const migrationInitialized = useRef(false);
@@ -59,16 +56,6 @@ export const useApp = () => {
     runMigration();
   }, []);
 
-  const handleSelectConversation = (conversation: any) => {
-    window.dispatchEvent(
-      new CustomEvent("conversationSelected", { detail: { id: conversation.id } })
-    );
-  };
-
-  const handleNewConversation = () => {
-    window.dispatchEvent(new CustomEvent("newConversation"));
-  };
-
   useEffect(() => {
     const handleShortcutRegistrationError = (
       event: Event | CustomEvent<Array<[string, string, string]>>
@@ -90,11 +77,4 @@ export const useApp = () => {
       window.removeEventListener("shortcutRegistrationError", handleShortcutRegistrationError as EventListener);
     };
   }, []);
-
-  return {
-    isHidden,
-    setIsHidden,
-    handleSelectConversation,
-    handleNewConversation,
-  };
 };

@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useWindowResize } from "./useWindow";
 import { useGlobalShortcuts } from "@/hooks";
-import { useApp } from "@/contexts";
+import { useApp as useGlobalApp } from "@/contexts";
 import {
   fetchAIResponse,
   saveConversation,
@@ -58,7 +57,7 @@ export const useCompletion = () => {
     allSttProviders,
     selectedAudioDevices,
     supportsImages,
-  } = useApp();
+  } = useGlobalApp();
   
   const globalShortcuts = useGlobalShortcuts();
 
@@ -78,8 +77,10 @@ export const useCompletion = () => {
   const [isFilesPopoverOpen, setIsFilesPopoverOpen] = useState(false);
   
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const { resizeWindow } = useWindowResize();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  const streamingTextRef = useRef<HTMLDivElement | null>(null);
+  const rawStreamBufferRef = useRef<string>("");
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentRequestIdRef = useRef<string | null>(null);
@@ -132,10 +133,7 @@ export const useCompletion = () => {
       }
 
       if (speechText) {
-        setState((prev) => ({
-          ...prev,
-          input: speechText,
-        }));
+        setState((prev) => ({ ...prev, input: speechText }));
       }
 
       const requestId = generateRequestId();
@@ -163,8 +161,6 @@ export const useCompletion = () => {
           });
         }
 
-        let fullResponse = "";
-
         if (!selectedAIProvider.provider) {
           setState((prev) => ({
             ...prev,
@@ -177,10 +173,7 @@ export const useCompletion = () => {
           (p) => p.id === selectedAIProvider.provider
         );
         if (!provider) {
-          setState((prev) => ({
-            ...prev,
-            error: "Invalid provider selected",
-          }));
+          setState((prev) => ({ ...prev, error: "Invalid provider selected" }));
           return;
         }
 
@@ -190,6 +183,11 @@ export const useCompletion = () => {
           error: null,
           response: "",
         }));
+
+        rawStreamBufferRef.current = "";
+        if (streamingTextRef.current) {
+          streamingTextRef.current.textContent = "Generating response...";
+        }
 
         try {
           for await (const chunk of fetchAIResponse({
@@ -201,17 +199,35 @@ export const useCompletion = () => {
             imagesBase64,
             signal,
           })) {
-            if (currentRequestIdRef.current !== requestId) {
+            if (currentRequestIdRef.current !== requestId || signal.aborted) {
               return;
             }
-            if (signal.aborted) {
-              return;
+
+            rawStreamBufferRef.current += chunk;
+
+            if (streamingTextRef.current) {
+              streamingTextRef.current.textContent = rawStreamBufferRef.current;
             }
-            fullResponse += chunk;
-            setState((prev) => ({
-              ...prev,
-              response: prev.response + chunk,
-            }));
+
+            const scrollElement = scrollAreaRef.current?.querySelector(
+              "[data-radix-scroll-area-viewport]"
+            ) as HTMLElement;
+
+            if (scrollElement) {
+              const THRESHOLD = 65;
+              const distanceToBottom =
+                scrollElement.scrollHeight -
+                scrollElement.scrollTop -
+                scrollElement.clientHeight;
+
+              // Only auto-scroll down if user remains near bottom
+              if (distanceToBottom <= THRESHOLD) {
+                scrollElement.scrollTo({
+                  top: scrollElement.scrollHeight,
+                  behavior: "auto",
+                });
+              }
+            }
           }
         } catch (e: any) {
           if (currentRequestIdRef.current === requestId && !signal.aborted) {
@@ -228,24 +244,35 @@ export const useCompletion = () => {
           return;
         }
 
-        setState((prev) => ({ ...prev, isLoading: false }));
+        const compiledResponse = rawStreamBufferRef.current;
+
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          response: compiledResponse,
+        }));
 
         setTimeout(() => {
           inputRef.current?.focus();
         }, 100);
 
-        if (fullResponse) {
+        if (compiledResponse) {
           await saveCurrentConversation(
             input,
-            fullResponse,
+            compiledResponse,
             state.attachedFiles
           );
+          
           setState((prev) => ({
             ...prev,
             input: "",
             attachedFiles: [],
             response: "",
           }));
+          
+          if (streamingTextRef.current) {
+            streamingTextRef.current.textContent = "";
+          }
         }
       } catch (error) {
         if (!signal?.aborted && currentRequestIdRef.current === requestId) {
@@ -298,20 +325,13 @@ export const useCompletion = () => {
         unlistenAudioRef.current = await listen("speech-detected", async (event: any) => {
           setIsRecording(false);
           const base64Audio = event.payload as string;
-          
-          const binaryString = atob(base64Audio);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          const audioBlob = new Blob([bytes], { type: "audio/wav" });
 
           try {
             const provider = allSttProviders.find(p => p.id === selectedSttProvider.provider);
             const text = await fetchSTT({
               provider: provider,
               selectedProvider: selectedSttProvider,
-              audio: audioBlob,
+              audio: new Blob([new Uint8Array(atob(base64Audio).split("").map(c => c.charCodeAt(0)))], { type: "audio/wav" }),
             });
             if (text) submit(text);
           } catch (e: any) {
@@ -344,7 +364,6 @@ export const useCompletion = () => {
         setTimeout(() => { isMicBusyRef.current = false; }, 300);
         
       } catch (e) {
-        console.error(e);
         setState((prev: any) => ({ ...prev, error: "Failed to start recording." }));
         await cleanupAudio();
         setIsRecording(false);
@@ -377,6 +396,8 @@ export const useCompletion = () => {
       error: null,
       attachedFiles: [],
     }));
+    rawStreamBufferRef.current = "";
+    if (streamingTextRef.current) streamingTextRef.current.textContent = "";
   }, [cancel]);
 
   const fileToBase64 = useCallback(async (file: File): Promise<string> => {
@@ -401,6 +422,8 @@ export const useCompletion = () => {
       error: null,
       isLoading: false,
     }));
+    rawStreamBufferRef.current = "";
+    if (streamingTextRef.current) streamingTextRef.current.textContent = "";
   }, []);
 
   const startNewConversation = useCallback(() => {
@@ -414,6 +437,8 @@ export const useCompletion = () => {
       isLoading: false,
       attachedFiles: [],
     }));
+    rawStreamBufferRef.current = "";
+    if (streamingTextRef.current) streamingTextRef.current.textContent = "";
   }, []);
 
   const saveCurrentConversation = useCallback(
@@ -423,7 +448,6 @@ export const useCompletion = () => {
       _attachedFiles: AttachedFile[]
     ) => {
       if (!userMessage || !assistantResponse) {
-        console.error("Cannot save conversation: missing message content");
         return;
       }
 
@@ -481,7 +505,6 @@ export const useCompletion = () => {
           conversationHistory: newMessages,
         }));
       } catch (error) {
-        console.error("Failed to save conversation:", error);
         setState((prev) => ({
           ...prev,
           error: "Failed to save conversation. Please try again.",
@@ -495,22 +518,12 @@ export const useCompletion = () => {
     const handleConversationSelected = async (event: any) => {
       const { id } = event.detail;
       if (!id || typeof id !== "string") {
-        console.error("No conversation ID provided");
-        setState((prev) => ({
-          ...prev,
-          error: "Invalid conversation selected",
-        }));
         return;
       }
       try {
         const conversation = await getConversationById(id);
         if (conversation) {
           loadConversation(conversation);
-        } else {
-          setState((prev) => ({
-            ...prev,
-            error: "Conversation not found. It may have been deleted.",
-          }));
         }
       } catch (error) {
          console.error("Failed to load conversation:", error);
@@ -528,32 +541,14 @@ export const useCompletion = () => {
       }
     };
 
-    const handleStorageChange = async (e: StorageEvent) => {
-      if (e.key === "pluely-conversation-selected" && e.newValue) {
-        try {
-          const data = JSON.parse(e.newValue);
-          if (data.id && typeof data.id === "string") {
-            const conversation = await getConversationById(data.id);
-            if (conversation) {
-              loadConversation(conversation);
-            }
-          }
-        } catch (error) {
-          console.error("Parse error:", error);
-        }
-      }
-    };
-
     window.addEventListener("conversationSelected", handleConversationSelected);
     window.addEventListener("newConversation", handleNewConversation);
     window.addEventListener("conversationDeleted", handleConversationDeleted);
-    window.addEventListener("storage", handleStorageChange);
 
     return () => {
       window.removeEventListener("conversationSelected", handleConversationSelected);
       window.removeEventListener("newConversation", handleNewConversation);
       window.removeEventListener("conversationDeleted", handleConversationDeleted);
-      window.removeEventListener("storage", handleStorageChange);
     };
   }, [loadConversation, startNewConversation, state.currentConversationId]);
 
@@ -603,7 +598,6 @@ export const useCompletion = () => {
             }
           }
         } catch {
-          // ignore
         }
       }
 
@@ -638,23 +632,6 @@ export const useCompletion = () => {
           });
         }
 
-        if (processedFiles.length === 0) {
-          try {
-            const clipboardItems = await navigator.clipboard.read();
-            for (const clipItem of clipboardItems) {
-              const imgTypes = clipItem.types.filter((t) => t.startsWith("image/"));
-              for (const type of imgTypes) {
-                const blob = await clipItem.getType(type);
-                const fileExt = type.split("/")[1] || "png";
-                const file = new File([blob], `screenshot_${Date.now()}.${fileExt}`, { type });
-                processedFiles.push(file);
-              }
-            }
-          } catch {
-            // ignore
-          }
-        }
-
         if (processedFiles.length > 0) {
           await Promise.all(processedFiles.map((file) => addFile(file)));
           setState((prev) => ({ ...prev, error: null }));
@@ -663,22 +640,6 @@ export const useCompletion = () => {
     },
     [addFile, supportsImages]
   );
-
-  useEffect(() => {
-    if (
-      state.response &&
-      scrollAreaRef.current
-    ) {
-      const scrollElement = scrollAreaRef.current.querySelector(
-        "[data-radix-scroll-area-viewport]"
-      );
-      if (scrollElement) {
-        scrollElement.scrollTo({
-          top: scrollElement.scrollHeight
-        });
-      }
-    }
-  }, [state.response]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -736,7 +697,6 @@ export const useCompletion = () => {
     submit,
     cancel,
     reset,
-    setState,
     isRecording,
     setIsRecording,
     isTranscribing,
@@ -751,10 +711,10 @@ export const useCompletion = () => {
     handleKeyPress,
     handlePaste,
     scrollAreaRef,
-    resizeWindow,
     isFilesPopoverOpen,
     setIsFilesPopoverOpen,
     onRemoveAllFiles,
     inputRef,
+    streamingTextRef,
   };
 };

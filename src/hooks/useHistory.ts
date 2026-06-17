@@ -12,14 +12,12 @@ export interface UseHistoryReturn {
   // State
   conversations: ChatConversation[];
   selectedConversationId: string | null;
-  viewingConversation: ChatConversation | null;
   downloadedConversations: Set<string>;
   deleteConfirm: string | null;
   isDownloaded: boolean;
   isAttached: boolean;
 
   // Actions
-  handleViewConversation: (conversation: ChatConversation) => void;
   handleDownloadConversation: (
     conversation: ChatConversation,
     e: React.MouseEvent
@@ -43,15 +41,9 @@ export function useHistory(): UseHistoryReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [search, setSearch] = useState("");
-  const [selectedConversationId, setSelectedConversationId] = useState<
-    string | null
-  >(null);
-  const [viewingConversation, setViewingConversation] =
-    useState<ChatConversation | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
 
-  const [downloadedConversations, setDownloadedConversations] = useState<
-    Set<string>
-  >(new Set());
+  const [downloadedConversations, setDownloadedConversations] = useState<Set<string>>(new Set());
 
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [isDownloaded, setIsDownloaded] = useState(false);
@@ -71,14 +63,9 @@ export function useHistory(): UseHistoryReturn {
     }
   }, []);
 
-  // Load conversations when component mounts or popover opens
   useEffect(() => {
     refreshConversations();
   }, [refreshConversations]);
-
-  const handleViewConversation = (conversation: ChatConversation) => {
-    setViewingConversation(conversation);
-  };
 
   const handleDownloadConversation = (
     conversation: ChatConversation,
@@ -133,7 +120,6 @@ export function useHistory(): UseHistoryReturn {
 
     try {
       setSelectedConversationId(null);
-      setViewingConversation(null);
       await deleteConversation(deleteConfirm);
       setConversations((prev) => prev.filter((c) => c.id !== deleteConfirm));
 
@@ -210,24 +196,19 @@ export function useHistory(): UseHistoryReturn {
   };
 
   return {
-    // State
     conversations,
     selectedConversationId,
-    viewingConversation,
     downloadedConversations,
     deleteConfirm,
     isDownloaded,
     isAttached,
 
-    // Actions
-    handleViewConversation,
     handleDownloadConversation,
     handleDeleteConfirm,
     confirmDelete,
     cancelDelete,
     handleAttachToOverlay,
     handleDownload,
-    // Utilities
     refreshConversations,
     search,
     setSearch,

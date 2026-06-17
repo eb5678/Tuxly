@@ -9,15 +9,8 @@ use tokio::time::{sleep, Duration};
 
 use crate::window::show_dashboard_window;
 
-// State for window visibility
-pub struct WindowVisibility {
-    #[allow(dead_code)]
-    pub is_hidden: Mutex<bool>,
-}
-
-// State for registered shortcuts
 pub struct RegisteredShortcuts {
-    pub shortcuts: Mutex<HashMap<String, String>>, // action_id -> shortcut_key
+    pub shortcuts: Mutex<HashMap<String, String>>, 
 }
 
 impl Default for RegisteredShortcuts {
@@ -54,7 +47,6 @@ pub struct ShortcutsConfig {
     pub bindings: HashMap<String, ShortcutBinding>,
 }
 
-/// Initialize global shortcuts for the application
 pub fn setup_global_shortcuts<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -71,7 +63,6 @@ pub fn setup_global_shortcuts<R: Runtime>(
     Ok(())
 }
 
-/// Handle shortcut action based on action_id
 pub fn handle_shortcut_action<R: Runtime>(app: &AppHandle<R>, action_id: &str) {
     match action_id {
         "toggle_dashboard" => handle_toggle_dashboard(app),
@@ -146,7 +137,6 @@ pub fn stop_all_move_windows<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-/// Handle audio shortcut
 fn handle_audio_shortcut<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
         if let Ok(false) = window.is_visible() {
@@ -163,7 +153,6 @@ fn handle_audio_shortcut<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-/// Handle screenshot shortcut
 fn handle_screenshot_shortcut<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
         if let Err(e) = window.emit("trigger-screenshot", json!({})) {
@@ -323,30 +312,6 @@ fn unregister_all_shortcuts<R: Runtime>(app: &AppHandle<R>) -> Result<(), String
     Ok(())
 }
 
-#[tauri::command]
-pub fn check_shortcuts_registered<R: Runtime>(app: AppHandle<R>) -> Result<bool, String> {
-    let state = app.state::<RegisteredShortcuts>();
-    let registered = match state.shortcuts.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => {
-            eprintln!("Mutex poisoned in check_shortcuts_registered, recovering...");
-            poisoned.into_inner()
-        }
-    };
-    Ok(!registered.is_empty())
-}
-
-#[tauri::command]
-pub fn validate_shortcut_key(key: String) -> Result<bool, String> {
-    match key.parse::<Shortcut>() {
-        Ok(_) => Ok(true),
-        Err(e) => {
-            eprintln!("Invalid shortcut '{}': {}", key, e);
-            Ok(false)
-        }
-    }
-}
-
 fn handle_toggle_dashboard<R: Runtime>(app: &AppHandle<R>) {
     if let Some(dashboard_window) = app.get_webview_window("dashboard") {
         match dashboard_window.is_visible() {
@@ -418,9 +383,4 @@ fn handle_move_window<R: Runtime>(app: &AppHandle<R>, direction: &str) {
     } else {
         eprintln!("Main window not found");
     }
-}
-
-#[tauri::command]
-pub fn exit_app(app_handle: tauri::AppHandle) {
-    app_handle.exit(0);
 }

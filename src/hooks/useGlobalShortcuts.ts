@@ -7,40 +7,11 @@ let globalEventListeners: { [key: string]: UnlistenFn | undefined } = {};
 
 let globalInputRef: HTMLInputElement | null = null;
 let globalAudioCallback: (() => void) | null = null;
-let globalSystemAudioCallback: (() => void) | null = null;
 let globalCustomShortcutCallbacks: Map<string, () => void> = new Map();
 
 export const useGlobalShortcuts = () => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const audioCallbackRef = useRef<(() => void) | null>(null);
-  const systemAudioCallbackRef = useRef<(() => void) | null>(null);
-  const customShortcutCallbacksRef = useRef<Map<string, () => void>>(new Map());
-
-  const checkShortcutsRegistered = useCallback(async (): Promise<boolean> => {
-    try {
-      return await invoke<boolean>("check_shortcuts_registered");
-    } catch (e) {
-      return false;
-    }
-  }, []);
-
-  const getShortcuts = useCallback(async (): Promise<Record<string, string> | null> => {
-    try {
-      return await invoke<Record<string, string>>("get_registered_shortcuts");
-    } catch (e) {
-      return null;
-    }
-  }, []);
-
-  const updateShortcuts = useCallback(async (): Promise<boolean> => {
-    try {
-      const config = getShortcutsConfig();
-      await invoke("update_shortcuts", { config });
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }, []);
 
   const registerInputRef = useCallback((input: HTMLInputElement | null) => {
     inputRef.current = input;
@@ -50,21 +21,6 @@ export const useGlobalShortcuts = () => {
   const registerAudioCallback = useCallback((callback: () => void) => {
     audioCallbackRef.current = callback;
     globalAudioCallback = callback;
-  }, []);
-
-  const registerSystemAudioCallback = useCallback((callback: () => void) => {
-    systemAudioCallbackRef.current = callback;
-    globalSystemAudioCallback = callback;
-  }, []);
-
-  const registerCustomShortcutCallback = useCallback((actionId: string, callback: () => void) => {
-    customShortcutCallbacksRef.current.set(actionId, callback);
-    globalCustomShortcutCallbacks.set(actionId, callback);
-  }, []);
-
-  const unregisterCustomShortcutCallback = useCallback((actionId: string) => {
-    customShortcutCallbacksRef.current.delete(actionId);
-    globalCustomShortcutCallbacks.delete(actionId);
   }, []);
 
   useEffect(() => {
@@ -78,10 +34,6 @@ export const useGlobalShortcuts = () => {
 
         globalEventListeners.audio = await listen("start-audio-recording", () => {
           if (globalAudioCallback) globalAudioCallback();
-        });
-
-        globalEventListeners.systemAudio = await listen("toggle-system-audio", () => {
-          if (globalSystemAudioCallback) globalSystemAudioCallback();
         });
 
         globalEventListeners.customShortcut = await listen<{ action: string }>(
@@ -155,13 +107,7 @@ export const useGlobalShortcuts = () => {
   }, []);
 
   return {
-    checkShortcutsRegistered,
-    getShortcuts,
-    updateShortcuts,
     registerInputRef,
     registerAudioCallback,
-    registerSystemAudioCallback,
-    registerCustomShortcutCallback,
-    unregisterCustomShortcutCallback,
   };
 };

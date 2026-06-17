@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useApp } from "@/contexts";
-import { extractVariables, deleteAllConversations } from "@/lib";
+import { extractVariables } from "@/lib";
 
 export const useSettings = () => {
   const {
@@ -14,7 +14,6 @@ export const useSettings = () => {
   
   const [variables, setVariables] = useState<{ key: string; value: string }[]>([]);
   const [sttVariables, setSttVariables] = useState<{ key: string; value: string }[]>([]);
-  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
 
   useEffect(() => {
     if (selectedAIProvider.provider) {
@@ -36,15 +35,6 @@ export const useSettings = () => {
     }
   }, [selectedSttProvider.provider]);
 
-  const handleDeleteAllChatsConfirm = async () => {
-    try {
-      await deleteAllConversations();
-      setShowDeleteConfirmDialog(false);
-    } catch (error) {
-      console.error("Failed to delete all conversations:", error);
-    }
-  };
-
   return {
     allAiProviders,
     allSttProviders,
@@ -52,9 +42,6 @@ export const useSettings = () => {
     selectedSttProvider,
     onSetSelectedAIProvider,
     onSetSelectedSttProvider,
-    handleDeleteAllChatsConfirm,
-    showDeleteConfirmDialog,
-    setShowDeleteConfirmDialog,
     variables,
     sttVariables,
   };

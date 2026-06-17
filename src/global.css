@@ -70,33 +70,16 @@
 }
 
 .dark {
-  /* True AMOLED Pure Black Colors */
   --background: oklch(0 0 0); 
   --foreground: oklch(0.985 0 0);
   --card: oklch(0 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0 0 0);
-  --secondary: oklch(0.1 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.1 0 0);
-  --muted-foreground: oklch(0.7 0 0);
+  --border: oklch(0.12 0 0); 
+  --input: oklch(0.08 0 0);
   --accent: oklch(0.1 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.6 0.2 20);
-  --border: oklch(0.2 0 0);
-  --input: oklch(0.2 0 0);
-  --ring: oklch(0.5 0 0);
-  --sidebar: oklch(0 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.985 0 0);
-  --sidebar-primary-foreground: oklch(0 0 0);
-  --sidebar-accent: oklch(0.1 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.2 0 0);
-  --sidebar-ring: oklch(0.5 0 0);
+  --muted: oklch(0.07 0 0);
 }
 
 @layer base {
@@ -104,7 +87,6 @@
     @apply border-border outline-ring/50;
   }
   
-  /* Immediate styling enforcing AMOLED background globally to drop initial white flashes altogether */
   html:not(.is-overlay), html:not(.is-overlay) body {
     background-color: #000000 !important;
   }
@@ -114,17 +96,11 @@
   }
 }
 
-/* Apply global transparency */
-[data-slot="card"] {
-  background-color: rgb(from var(--card) r g b / var(--opacity, 1)) !important;
-  backdrop-filter: var(--backdrop-blur, none);
-}
-
-[data-slot="popover-content"] {
-  background-color: rgb(
-    from var(--popover) r g b / var(--opacity, 1)
-  ) !important;
-  backdrop-filter: var(--backdrop-blur, none);
+[data-slot="card"], [data-slot="popover-content"] {
+  background-color: #000000 !important;
+  backdrop-filter: none !important;
+  border: 1px solid var(--border) !important;
+  will-change: transform, opacity; 
 }
 
 * {
@@ -171,7 +147,6 @@ body {
   overflow: hidden;
 }
 
-/* Streamdown code block styling */
 [data-streamdown="code-block"] code {
   color: inherit !important;
 }
@@ -180,12 +155,10 @@ body {
   color: var(--shiki-dark) !important;
 }
 
-/* Fallback for code text color in dark mode */
 .dark [data-streamdown="code-block"] code {
   color: oklch(0.985 0 0) !important;
 }
 
-/* Fix viewport overflow for markdown content */
 [data-streamdown="code-block"],
 [data-streamdown="table"] {
   max-width: 100% !important;

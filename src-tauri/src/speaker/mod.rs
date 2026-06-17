@@ -29,10 +29,6 @@ pub struct SpeakerInput {
 }
 
 impl SpeakerInput {
-    pub fn new() -> Result<Self> {
-        let inner = PlatformSpeakerInput::new(None)?;
-        Ok(Self { inner })
-    }
 
     pub fn new_with_device(device_id: Option<String>) -> Result<Self> {
         let inner = PlatformSpeakerInput::new(device_id)?;

@@ -6,7 +6,7 @@ import { Button, ScrollArea, Markdown, CopyButton } from "@/components";
 import { MessageSquarePlus, SparklesIcon, Loader2, BotIcon } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 
-export const Completion = ({ isHidden }: { isHidden: boolean }) => {
+export const Completion = () => {
   const completion = useCompletion();
 
   const openDashboard = async () => {
@@ -22,7 +22,7 @@ export const Completion = ({ isHidden }: { isHidden: boolean }) => {
           <MessageSquarePlus className="h-4 w-4" />
         </Button>
         <Audio {...completion} />
-        <Input {...completion} isHidden={isHidden} />
+        <Input {...completion} />
         <Files {...completion} />
         <Button size="icon" variant="ghost" title="Open Dev Space" onClick={openDashboard}>
           <SparklesIcon className="h-4 w-4" />
@@ -36,6 +36,7 @@ export const Completion = ({ isHidden }: { isHidden: boolean }) => {
                 <strong>Error:</strong> {completion.error}
               </div>
             )}
+            
             {completion.conversationHistory.map((message, index) => (
               <div key={index} className={`p-3 rounded-lg text-sm ${
                 message.role === "user"
@@ -65,11 +66,17 @@ export const Completion = ({ isHidden }: { isHidden: boolean }) => {
                    </span>
                    {completion.response && <CopyButton content={completion.response} />}
                 </div>
+                
                 <div className="prose prose-sm max-w-none dark:prose-invert break-words">
                    {completion.response ? (
                      <Markdown>{completion.response}</Markdown>
                    ) : (
-                     <span className="text-muted-foreground italic">Generating response...</span>
+                     <div 
+                       ref={completion.streamingTextRef as any}
+                       className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed select-text"
+                     >
+                       <span className="text-muted-foreground italic">Generating response...</span>
+                     </div>
                    )}
                 </div>
               </div>

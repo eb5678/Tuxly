@@ -8,8 +8,8 @@ use tokio::task::JoinHandle;
 
 #[derive(Default)]
 pub struct AudioState {
-    stream_task: Arc<Mutex<Option<JoinHandle<()>>>>,
-    is_capturing: Arc<Mutex<bool>>,
+    pub stream_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+    pub is_capturing: Arc<Mutex<bool>>,
 }
 
 #[tauri::command]
@@ -26,7 +26,6 @@ pub fn run() {
                 .build(),
         )
         .manage(AudioState::default())
-        .manage(shortcuts::WindowVisibility { is_hidden: Mutex::new(false) })
         .manage(shortcuts::RegisteredShortcuts::default())
         .manage(shortcuts::MoveWindowState::default())
         .plugin(tauri_plugin_opener::init())
@@ -38,22 +37,14 @@ pub fn run() {
     let builder = builder
         .invoke_handler(tauri::generate_handler![
             get_app_version,
-            window::set_window_height,
             window::open_dashboard,
             window::toggle_dashboard,
             window::move_window,
-            shortcuts::check_shortcuts_registered,
             shortcuts::get_registered_shortcuts,
             shortcuts::update_shortcuts,
-            shortcuts::validate_shortcut_key,
-            shortcuts::exit_app,
             speaker::start_system_audio_capture,
             speaker::stop_system_audio_capture,
             speaker::manual_stop_continuous,
-            speaker::check_system_audio_access,
-            speaker::request_system_audio_access,
-            speaker::get_capture_status,
-            speaker::get_audio_sample_rate,
             speaker::get_input_devices,
             speaker::get_output_devices,
         ])

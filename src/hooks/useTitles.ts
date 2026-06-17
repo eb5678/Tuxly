@@ -1,15 +1,6 @@
 import { useEffect } from "react";
 
-/**
- * Hook to conditionally render titles based on user preference
- * @param titleText The title text to render if enabled
- * @returns The title text if enabled, empty string if disabled
- */
 export const useTitles = () => {
-  const getTitle = (): string => {
-    return "";
-  };
-
   const removeTitleFromElement = (element: Element) => {
     const currentTitle = element.getAttribute("title");
     if (currentTitle) {
@@ -30,12 +21,9 @@ export const useTitles = () => {
     });
   };
 
-  // Handle title visibility globally
   useEffect(() => {
-    // Use setTimeout to ensure DOM is fully loaded
     const timeoutId = setTimeout(disableTitles, 100);
 
-    // Set up mutation observer to handle dynamically added elements
     const observer = new MutationObserver((mutations) => {
       let hasTitleChanges = false;
       mutations.forEach((mutation) => {
@@ -61,7 +49,6 @@ export const useTitles = () => {
       });
 
       if (hasTitleChanges) {
-        // Remove titles from any new or updated elements
         setTimeout(() => {
           const elementsWithTitles = document.querySelectorAll("[title]");
           elementsWithTitles.forEach((element) => {
@@ -83,9 +70,4 @@ export const useTitles = () => {
       observer.disconnect();
     };
   }, []);
-
-  return {
-    getTitle,
-    isTitlesEnabled: false,
-  };
 };

@@ -26,8 +26,6 @@ export interface UseCompletionReturn {
   cancel: () => void;
   reset: () => void;
 
-  setState: Dispatch<SetStateAction<any>>;
-
   isRecording: boolean;
   setIsRecording: Dispatch<SetStateAction<boolean>>;
   isTranscribing: boolean;
@@ -46,13 +44,14 @@ export interface UseCompletionReturn {
   handlePaste: (e: ClipboardEvent) => Promise<void>;
 
   scrollAreaRef: RefObject<HTMLDivElement | null>;
-  resizeWindow: (expanded: boolean) => Promise<void>;
 
   isFilesPopoverOpen: boolean;
   setIsFilesPopoverOpen: Dispatch<SetStateAction<boolean>>;
   onRemoveAllFiles: () => void;
 
   inputRef: RefObject<HTMLInputElement | null>;
+  
+  streamingTextRef: RefObject<HTMLDivElement | null>; 
 }
 
 export type UseCompletionHook = () => UseCompletionReturn;

@@ -1,4 +1,3 @@
-// Pluely linux speaker input and stream
 use super::AudioDevice;
 use anyhow::{anyhow, Result};
 use futures_util::Stream;
@@ -8,7 +7,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::task::{Poll, Waker};
 use std::thread;
-use tracing::{error, warn};
+use tracing::error;
 use libpulse_binding as pulse;
 use libpulse_simple_binding as psimple;
 
@@ -19,6 +18,7 @@ use pulse::sample::{Format, Spec};
 use pulse::stream::Direction;
 
 const DEFAULT_SAMPLE_RATE: u32 = 44_100;
+const AUDIO_CHUNK_SIZE: usize = 1024;
 
 pub fn get_input_devices() -> Result<Vec<AudioDevice>> {
     let devices = Rc::new(RefCell::new(Vec::new()));
@@ -288,10 +288,7 @@ pub struct SpeakerInput {
 impl SpeakerInput {
     pub fn new(device_id: Option<String>) -> Result<Self> {
         let source_name = match device_id {
-            Some(ref id) if id == "@DEFAULT_SOURCE@" => {
-                // None instructs PulseAudio to record from local default input (Microphone)
-                None
-            }
+            Some(ref id) if id == "@DEFAULT_SOURCE@" => None,
             Some(ref id) if !id.is_empty() && id != "default" => {
                 if id.contains(".monitor") || id.starts_with("alsa_input") || id.contains("source") {
                     Some(id.clone())
@@ -299,16 +296,13 @@ impl SpeakerInput {
                     Some(format!("{}.monitor", id))
                 }
             }
-            _ => {
-                // Get dynamic sink target for System Speaker capture
-                get_default_monitor_source()
-            }
+            _ => get_default_monitor_source(),
         };
         Ok(Self { source_name })
     }
 
     pub fn stream(self) -> SpeakerStream {
-        let sample_queue = Arc::new(Mutex::new(VecDeque::new()));
+        let sample_queue = Arc::new(Mutex::new(VecDeque::with_capacity(262144)));
         let waker_state = Arc::new(Mutex::new(WakerState {
             waker: None,
             has_data: false,
@@ -363,6 +357,7 @@ impl SpeakerInput {
             waker_state,
             capture_thread,
             sample_rate,
+            chunk_buffer: Vec::with_capacity(AUDIO_CHUNK_SIZE),
         }
     }
 }
@@ -378,6 +373,7 @@ pub struct SpeakerStream {
     waker_state: Arc<Mutex<WakerState>>,
     capture_thread: Option<thread::JoinHandle<()>>,
     sample_rate: u32,
+    chunk_buffer: Vec<f32>,
 }
 
 impl SpeakerStream {
@@ -398,27 +394,23 @@ impl SpeakerStream {
         };
 
         if !spec.is_valid() {
-            error!("[capture_audio_loop] Invalid audio specification");
             return Err(anyhow!("Invalid audio specification"));
         }
 
         let init_result: Result<(Simple, u32)> = (|| {
             let simple = Simple::new(
-                None,                    // Use default Pulse server
-                "pluely",                // Application name
-                Direction::Record,       // Record direction
-                source_name,             // Target device/monitor interface
-                "System Audio Capture",  // Stream description
-                &spec,                   // Sample specification
+                None,
+                "pluely",
+                Direction::Record,
+                source_name,
+                "System Audio Capture",
+                &spec,
                 None,
                 None,
             )
             .map_err(|e| {
-                error!(
-                    "[capture_audio_loop] Failed to connect stream to source ({:?}): {}",
-                    source_name, e
-                );
-                anyhow!("Failed to create PulseAudio connection: {}", e)
+                error!("[capture_audio_loop] Failed connect stream: {}", e);
+                anyhow!("PulseAudio connection failure: {}", e)
             })?;
 
             Ok((simple, spec.rate))
@@ -427,7 +419,7 @@ impl SpeakerStream {
         match init_result {
             Ok((simple, sample_rate)) => {
                 let _ = init_tx.send(Ok(sample_rate));
-                let mut buffer = vec![0u8; 4096];
+                let mut buffer = vec![0u8; AUDIO_CHUNK_SIZE * 4];
 
                 loop {
                     if waker_state.lock().unwrap().shutdown {
@@ -444,23 +436,14 @@ impl SpeakerStream {
                                 .collect();
 
                             if !samples.is_empty() {
-                                let dropped = {
-                                    let mut queue = sample_queue.lock().unwrap();
-                                    const MAX_BUFFER_SIZE: usize = 131072;
+                                let mut queue = sample_queue.lock().unwrap();
+                                const MAX_BUFFER_SIZE: usize = 262144;
 
-                                    queue.extend(samples.iter());
+                                queue.extend(samples.iter());
 
-                                    if queue.len() > MAX_BUFFER_SIZE {
-                                        let to_drop = queue.len() - MAX_BUFFER_SIZE;
-                                        queue.drain(0..to_drop);
-                                        to_drop
-                                    } else {
-                                        0
-                                    }
-                                };
-
-                                if dropped > 0 {
-                                    warn!("[capture_audio_loop] Buffer overflow - dropped {} samples", dropped);
+                                if queue.len() > MAX_BUFFER_SIZE {
+                                    let to_drop = queue.len() - MAX_BUFFER_SIZE;
+                                    queue.drain(0..to_drop);
                                 }
 
                                 {
@@ -477,13 +460,12 @@ impl SpeakerStream {
                         }
                         Err(e) => {
                             error!("[capture_audio_loop] PulseAudio read error: {}", e);
-                            thread::sleep(std::time::Duration::from_millis(100));
+                            thread::sleep(std::time::Duration::from_millis(50));
                         }
                     }
                 }
             }
             Err(e) => {
-                error!("[capture_audio_loop] PulseAudio initiation aborted: {}", e);
                 let _ = init_tx.send(Err(e));
             }
         }
@@ -510,21 +492,31 @@ impl Stream for SpeakerStream {
     type Item = f32;
 
     fn poll_next(
-        self: std::pin::Pin<&mut Self>,
+        mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-        let mut queue = self.sample_queue.lock().unwrap();
-        if let Some(sample) = queue.pop_front() {
-            return Poll::Ready(Some(sample));
+        if !self.chunk_buffer.is_empty() {
+            return Poll::Ready(Some(self.chunk_buffer.remove(0)));
         }
 
-        let mut state = self.waker_state.lock().unwrap();
-        if state.shutdown {
-            return Poll::Ready(None);
+        // Bypasses aliasing constraints by cloning the Arc handle out of self
+        let queue_lock = Arc::clone(&self.sample_queue);
+        let mut queue = queue_lock.lock().unwrap();
+        
+        if queue.is_empty() {
+            let mut state = self.waker_state.lock().unwrap();
+            if state.shutdown {
+                return Poll::Ready(None);
+            }
+            state.has_data = false;
+            state.waker = Some(cx.waker().clone());
+            return Poll::Pending;
         }
 
-        state.has_data = false;
-        state.waker = Some(cx.waker().clone());
-        Poll::Pending
+        let fetch_size = std::cmp::min(queue.len(), AUDIO_CHUNK_SIZE);
+        self.chunk_buffer.extend(queue.drain(0..fetch_size));
+        drop(queue);
+
+        Poll::Ready(Some(self.chunk_buffer.remove(0)))
     }
 }

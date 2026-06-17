@@ -13,11 +13,6 @@ pub fn setup_main_window(app: &mut App) -> Result<(), Box<dyn std::error::Error>
     // Explicitly enforce priority for Wayland compositors (always_on_top shifted to be managed natively by Cosmic)
     let _ = window.set_visible_on_all_workspaces(true);
     
-    // DELIBERATELY REMOVED the pre-creation of the dashboard window.
-    // Creating it `visible(false)` in the background on Linux/Wayland causes WebKitGTK 
-    // to miscalculate the Client-Side Decoration (CSD) hitboxes, rendering 
-    // the window controls unclickable until a resize/maximize occurs.
-    
     Ok(())
 }
 
@@ -35,12 +30,6 @@ pub fn position_window_top_center(
             y: y_offset,
         }))?;
     }
-    Ok(())
-}
-
-#[tauri::command]
-pub fn set_window_height(_window: tauri::WebviewWindow, _height: u32) -> Result<(), String> {
-    // Disabled dynamic resizing logic. The window is now naturally resizable by the user OS layer 
     Ok(())
 }
 

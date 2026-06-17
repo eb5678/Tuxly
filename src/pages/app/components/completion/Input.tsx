@@ -9,8 +9,7 @@ export const Input = ({
   handleKeyPress,
   handlePaste,
   inputRef,
-  isHidden,
-}: UseCompletionReturn & { isHidden: boolean }) => {
+}: UseCompletionReturn) => {
   return (
     <div className="relative flex-1" data-tauri-drag-region>
       <InputComponent
@@ -20,7 +19,7 @@ export const Input = ({
         onChange={(e) => setInput(e.target.value)}
         onKeyPress={handleKeyPress}
         onPaste={handlePaste}
-        disabled={isLoading || isHidden}
+        disabled={isLoading}
         className="pr-8 border-transparent focus-visible:ring-0 shadow-none bg-transparent hover:bg-black/5 dark:hover:bg-white/5"
       />
       {isLoading && (

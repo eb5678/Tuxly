@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Streamdown } from "streamdown";
 import "katex/dist/katex.min.css";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -12,23 +12,27 @@ export function Markdown({
   children,
   isStreaming = false,
 }: MarkdownRendererProps) {
+  const content = useMemo(() => {
+     return children;
+  }, [children]);
+
   return (
     <Streamdown
       isAnimating={isStreaming}
       shikiTheme={["github-light", "github-dark"]}
       components={COMPONENTS as any}
       controls={{
-        table: true,
-        code: true,
+        table: !isStreaming,
+        code: !isStreaming,
         mermaid: {
-          download: true,
-          copy: true,
+          download: false,
+          copy: false,
           fullscreen: false,
           panZoom: false,
         },
       }}
     >
-      {children}
+      {content}
     </Streamdown>
   );
 }
@@ -49,7 +53,7 @@ const COMPONENTS = {
     return (
       <a
         href={href}
-        className="text-gray-600 underline underline-offset-2 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100 cursor-pointer"
+        className="text-gray-400 underline decoration-gray-500 hover:text-white cursor-pointer"
         onClick={handleClick}
         {...props}
       >
