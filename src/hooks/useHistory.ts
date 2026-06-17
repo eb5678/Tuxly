@@ -4,24 +4,14 @@ import {
   deleteConversation,
   DOWNLOAD_SUCCESS_DISPLAY_MS,
 } from "@/lib";
-import { ChatConversation } from "@/types/completion";
-
-export type UseHistoryType = ReturnType<typeof useHistory>;
+import { ChatConversation } from "@/types";
 
 export interface UseHistoryReturn {
-  // State
   conversations: ChatConversation[];
-  selectedConversationId: string | null;
-  downloadedConversations: Set<string>;
   deleteConfirm: string | null;
   isDownloaded: boolean;
   isAttached: boolean;
 
-  // Actions
-  handleDownloadConversation: (
-    conversation: ChatConversation,
-    e: React.MouseEvent
-  ) => void;
   handleDeleteConfirm: (conversationId: string) => void;
   confirmDelete: () => void;
   cancelDelete: () => void;
@@ -32,7 +22,6 @@ export interface UseHistoryReturn {
   ) => void;
   search: string;
   setSearch: React.Dispatch<React.SetStateAction<string>>;
-  // Utilities
   refreshConversations: () => void;
   isLoading: boolean;
 }
@@ -41,15 +30,11 @@ export function useHistory(): UseHistoryReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [search, setSearch] = useState("");
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-
-  const [downloadedConversations, setDownloadedConversations] = useState<Set<string>>(new Set());
 
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [isAttached, setIsAttached] = useState(false);
 
-  // Function to refresh conversations
   const refreshConversations = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -69,18 +54,9 @@ export function useHistory(): UseHistoryReturn {
 
   const handleDownloadConversation = (
     conversation: ChatConversation,
-    e: React.MouseEvent
   ) => {
-    e.stopPropagation();
-
-    // Show download success state
-    setDownloadedConversations((prev) => new Set(prev).add(conversation.id));
-
     try {
-      // Convert conversation to markdown format
       const markdown = generateConversationMarkdown(conversation);
-
-      // Create and download the file
       const blob = new Blob([markdown], { type: "text/markdown" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -92,23 +68,7 @@ export function useHistory(): UseHistoryReturn {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Failed to download conversation:", error);
-      // Remove from success state if download failed
-      setDownloadedConversations((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(conversation.id);
-        return newSet;
-      });
-      return;
     }
-
-    // Clear success state after display timeout
-    setTimeout(() => {
-      setDownloadedConversations((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(conversation.id);
-        return newSet;
-      });
-    }, DOWNLOAD_SUCCESS_DISPLAY_MS);
   };
 
   const handleDeleteConfirm = (conversationId: string) => {
@@ -119,11 +79,8 @@ export function useHistory(): UseHistoryReturn {
     if (!deleteConfirm) return;
 
     try {
-      setSelectedConversationId(null);
       await deleteConversation(deleteConfirm);
       setConversations((prev) => prev.filter((c) => c.id !== deleteConfirm));
-
-      // Emit event to notify other components about deletion
       window.dispatchEvent(
         new CustomEvent("conversationDeleted", {
           detail: deleteConfirm,
@@ -141,7 +98,6 @@ export function useHistory(): UseHistoryReturn {
   };
 
   const handleAttachToOverlay = (conversationId: string) => {
-    // Use localStorage to communicate between windows
     localStorage.setItem(
       "pluely-conversation-selected",
       JSON.stringify({ id: conversationId, timestamp: Date.now() })
@@ -157,7 +113,8 @@ export function useHistory(): UseHistoryReturn {
     e: React.MouseEvent
   ) => {
     if (conversation) {
-      handleDownloadConversation(conversation, e);
+      e.stopPropagation();
+      handleDownloadConversation(conversation);
       setIsDownloaded(true);
       setTimeout(() => {
         setIsDownloaded(false);
@@ -165,7 +122,6 @@ export function useHistory(): UseHistoryReturn {
     }
   };
 
-  // Helper functions
   const generateConversationMarkdown = (
     conversation: ChatConversation
   ): string => {
@@ -197,13 +153,10 @@ export function useHistory(): UseHistoryReturn {
 
   return {
     conversations,
-    selectedConversationId,
-    downloadedConversations,
     deleteConfirm,
     isDownloaded,
     isAttached,
 
-    handleDownloadConversation,
     handleDeleteConfirm,
     confirmDelete,
     cancelDelete,

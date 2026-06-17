@@ -44,11 +44,6 @@ export async function fetchSTT(params: STTParams): Promise<string> {
     // Validate audio file
     const file = audio as File;
     if (file.size === 0) throw new Error("Audio file is empty");
-    // maximum size of 10MB
-    // const maxSize = 10 * 1024 * 1024;
-    // if (file.size > maxSize) {
-    //   warnings.push("Audio exceeds 10MB limit");
-    // }
 
     // Build variable map
     const allVariables = {

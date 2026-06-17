@@ -274,8 +274,6 @@ const View = () => {
                     disabled={!supportsImages}
                   />
                   <ChatAudio
-                    micOpen={completion.micOpen}
-                    setMicOpen={completion.setMicOpen}
                     isRecording={completion.isRecording}
                     setIsRecording={completion.setIsRecording}
                     disabled={false}

@@ -8,12 +8,6 @@ export const DEFAULT_SHORTCUT_ACTIONS: ShortcutAction[] = [
     defaultKey: "alt+shift+d",
   },
   {
-    id: "toggle_window",
-    name: "Toggle Mini Overlay",
-    description: "Show/Hide the mini prompt overlay",
-    defaultKey: "alt+backslash",
-  },
-  {
     id: "focus_input",
     name: "Refocus Input Box",
     description: "Bring overlay forward and place cursor in the input area",

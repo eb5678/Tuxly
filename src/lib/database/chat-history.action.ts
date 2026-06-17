@@ -88,7 +88,7 @@ function validateMessage(message: any): boolean {
 /**
  * Create a new conversation with transaction safety
  */
-export async function createConversation(
+async function createConversation(
   conversation: ChatConversation
 ): Promise<ChatConversation> {
   if (!validateConversation(conversation)) {
@@ -252,7 +252,7 @@ export async function getConversationById(
 /**
  * Update a conversation with transaction safety
  */
-export async function updateConversation(
+async function updateConversation(
   conversation: ChatConversation
 ): Promise<ChatConversation> {
   if (!validateConversation(conversation)) {

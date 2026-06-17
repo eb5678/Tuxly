@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Streamdown } from "streamdown";
 import "katex/dist/katex.min.css";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -12,10 +12,6 @@ export function Markdown({
   children,
   isStreaming = false,
 }: MarkdownRendererProps) {
-  const content = useMemo(() => {
-     return children;
-  }, [children]);
-
   return (
     <Streamdown
       isAnimating={isStreaming}
@@ -32,7 +28,7 @@ export function Markdown({
         },
       }}
     >
-      {content}
+      {children}
     </Streamdown>
   );
 }

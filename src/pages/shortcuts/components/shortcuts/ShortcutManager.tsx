@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button, Card, Switch } from "@/components";
 import { RotateCcw, AlertCircle, Keyboard } from "lucide-react";
+import { DEFAULT_SHORTCUT_ACTIONS } from "@/config";
 import {
-  getAllShortcutActions,
   getShortcutsConfig,
   updateShortcutBinding,
   resetShortcutsToDefaults,
@@ -26,8 +26,7 @@ export const ShortcutManager = () => {
 
   const loadShortcuts = () => {
     const config = getShortcutsConfig();
-    const allActions = getAllShortcutActions(); 
-    setActions(allActions);
+    setActions(DEFAULT_SHORTCUT_ACTIONS);
     setBindings(config.bindings);
   };
 
@@ -102,7 +101,6 @@ export const ShortcutManager = () => {
 
   return (
     <div id="shortcuts" className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-md lg:text-lg font-semibold flex items-center gap-2">
@@ -127,7 +125,6 @@ export const ShortcutManager = () => {
         </div>
       </div>
 
-      {/* Conflicts Alert */}
       {conflicts.length > 0 && (
         <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
           <div className="flex items-start gap-2">
@@ -141,7 +138,6 @@ export const ShortcutManager = () => {
         </div>
       )}
 
-      {/* Flat Shortcuts List */}
       <div className="space-y-3">
         {actions.map((action) => {
           const binding = bindings[action.id] || {
@@ -228,7 +224,6 @@ export const ShortcutManager = () => {
         })}
       </div>
 
-      {/* Footer Note */}
       <p className="text-xs text-muted-foreground text-center pt-2">
         💡 Shortcuts work globally, even when the app is hidden
       </p>

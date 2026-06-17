@@ -2,8 +2,6 @@ import { MicIcon } from "lucide-react";
 import { Button } from "@/components";
 
 interface ChatAudioProps {
-  micOpen: boolean;
-  setMicOpen: (open: boolean) => void;
   isRecording: boolean;
   setIsRecording: (recording: boolean) => void;
   disabled: boolean;
@@ -14,7 +12,6 @@ export const ChatAudio = ({
   setIsRecording,
   disabled,
 }: ChatAudioProps) => {
-  // IF CONFIGURED: Return normal button
     return (
       <Button
         size="icon"

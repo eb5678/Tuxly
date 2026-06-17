@@ -16,10 +16,9 @@ const AUDIO_CONFIG = {
 
 interface AudioVisualizerProps {
   isRecording: boolean;
-  stream?: MediaStream | null;
 }
 
-export function AudioVisualizer({ stream, isRecording }: AudioVisualizerProps) {
+export function AudioVisualizer({ isRecording }: AudioVisualizerProps) {
   // Refs for managing audio context and animation
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -36,11 +35,7 @@ export function AudioVisualizer({ stream, isRecording }: AudioVisualizerProps) {
     }
     // Stop all oscillators
     oscillatorsRef.current.forEach((osc) => {
-      try {
-        osc.stop();
-      } catch {
-        // Oscillator may already be stopped
-      }
+      try { osc.stop(); } catch { }
     });
     oscillatorsRef.current = [];
     gainNodesRef.current = [];
@@ -63,7 +58,7 @@ export function AudioVisualizer({ stream, isRecording }: AudioVisualizerProps) {
       cleanup();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stream, isRecording]);
+  }, [isRecording]);
 
   // Handle window resize
   useEffect(() => {
@@ -86,7 +81,6 @@ export function AudioVisualizer({ stream, isRecording }: AudioVisualizerProps) {
     };
 
     window.addEventListener("resize", handleResize);
-    // Initial setup
     handleResize();
 
     return () => window.removeEventListener("resize", handleResize);
@@ -97,7 +91,6 @@ export function AudioVisualizer({ stream, isRecording }: AudioVisualizerProps) {
     audioContext: AudioContext,
     analyser: AnalyserNode
   ) => {
-    // Create multiple oscillators with different frequencies to simulate speech
     const frequencies = [120, 240, 350, 500, 800, 1200, 2000, 3500];
     const oscillators: OscillatorNode[] = [];
     const gainNodes: GainNode[] = [];
@@ -106,11 +99,9 @@ export function AudioVisualizer({ stream, isRecording }: AudioVisualizerProps) {
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
 
-      // Use different wave types for variety
       oscillator.type = index % 2 === 0 ? "sine" : "triangle";
       oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
 
-      // Set initial gain (very low to simulate quiet speech)
       gainNode.gain.setValueAtTime(0.01, audioContext.currentTime);
 
       oscillator.connect(gainNode);
@@ -124,15 +115,12 @@ export function AudioVisualizer({ stream, isRecording }: AudioVisualizerProps) {
     oscillatorsRef.current = oscillators;
     gainNodesRef.current = gainNodes;
 
-    // Animate the gain to simulate speech patterns
     const animateGain = () => {
       if (!isRecording || !audioContextRef.current) return;
 
       gainNodes.forEach((gainNode, index) => {
-        // Create random fluctuations to simulate speech
         const baseGain = 0.02 + Math.random() * 0.08;
-        const speechPattern =
-          Math.sin(Date.now() / (200 + index * 50)) * 0.5 + 0.5;
+        const speechPattern = Math.sin(Date.now() / (200 + index * 50)) * 0.5 + 0.5;
         const randomBurst = Math.random() > 0.7 ? Math.random() * 0.1 : 0;
         const targetGain = baseGain * speechPattern + randomBurst;
 
@@ -159,14 +147,9 @@ export function AudioVisualizer({ stream, isRecording }: AudioVisualizerProps) {
       analyser.smoothingTimeConstant = AUDIO_CONFIG.SMOOTHING;
       analyserRef.current = analyser;
 
-      if (stream) {
-        // Use real stream if available
-        const source = audioContext.createMediaStreamSource(stream);
-        source.connect(analyser);
-      } else {
-        // Create fake stream for visualization
-        createFakeStream(audioContext, analyser);
-      }
+      // Because Tauri captures system audio in Rust directly,
+      // create fake stream mapping visualizer simulation to indicate recording visually.
+      createFakeStream(audioContext, analyser);
 
       draw();
     } catch (error) {
@@ -174,7 +157,6 @@ export function AudioVisualizer({ stream, isRecording }: AudioVisualizerProps) {
     }
   };
 
-  // Calculate the color intensity based on bar height
   const getBarColor = (normalizedHeight: number) => {
     const intensity =
       Math.floor(normalizedHeight * AUDIO_CONFIG.COLOR.INTENSITY_RANGE) +
@@ -192,13 +174,10 @@ export function AudioVisualizer({ stream, isRecording }: AudioVisualizerProps) {
     color: string
   ) => {
     ctx.fillStyle = color;
-    // Draw upper bar (above center)
     ctx.fillRect(x, centerY - height, width, height);
-    // Draw lower bar (below center)
     ctx.fillRect(x, centerY, width, height);
   };
 
-  // Main drawing function
   const draw = () => {
     if (!isRecording) return;
 
@@ -216,13 +195,11 @@ export function AudioVisualizer({ stream, isRecording }: AudioVisualizerProps) {
     const drawFrame = () => {
       animationFrameRef.current = requestAnimationFrame(drawFrame);
 
-      // Get current frequency data
       analyser.getByteFrequencyData(frequencyData);
 
-      // Clear canvas - use CSS pixels for clearing
+      // Clear canvas
       ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
 
-      // Calculate dimensions in CSS pixels
       const barWidth = Math.max(
         AUDIO_CONFIG.MIN_BAR_WIDTH,
         canvas.width / dpr / bufferLength - AUDIO_CONFIG.BAR_SPACING
@@ -230,9 +207,8 @@ export function AudioVisualizer({ stream, isRecording }: AudioVisualizerProps) {
       const centerY = canvas.height / dpr / 2;
       let x = 0;
 
-      // Draw each frequency bar
       for (let i = 0; i < bufferLength; i++) {
-        const normalizedHeight = frequencyData[i] / 255; // Convert to 0-1 range
+        const normalizedHeight = frequencyData[i] / 255; 
         const barHeight = Math.max(
           AUDIO_CONFIG.MIN_BAR_HEIGHT,
           normalizedHeight * centerY

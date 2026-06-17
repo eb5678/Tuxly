@@ -22,8 +22,7 @@ export async function blobToBase64(blob: Blob): Promise<string> {
 }
 
 export function extractVariables(
-  curl: string,
-  includeAll = false
+  curl: string
 ): { key: string; value: string }[] {
   if (typeof curl !== "string") {
     return [];
@@ -41,10 +40,7 @@ export function extractVariables(
     .filter((v) => v !== "");
 
   const uniqueVariables = [...new Set(variables)];
-
-  const doNotInclude = includeAll
-    ? []
-    : ["SYSTEM_PROMPT", "TEXT", "IMAGE", "AUDIO"];
+  const doNotInclude = ["SYSTEM_PROMPT", "TEXT", "IMAGE", "AUDIO"];
 
   const filteredVariables = uniqueVariables?.filter(
     (variable) => !doNotInclude?.includes(variable)
@@ -56,10 +52,7 @@ export function extractVariables(
   }));
 }
 
-/**
- * Recursively processes a user message template to replace placeholders for text and images.
- */
-export function processUserMessageTemplate(
+function processUserMessageTemplate(
   template: any,
   userMessage: string,
   imagesBase64: string[] = []
@@ -113,9 +106,6 @@ export function processUserMessageTemplate(
   return imageReplacer(result);
 }
 
-/**
- * Builds a dynamic messages array from a template, incorporating history and the current user message.
- */
 export function buildDynamicMessages(
   messagesTemplate: any[],
   history: Message[],
@@ -127,7 +117,7 @@ export function buildDynamicMessages(
   );
 
   if (userMessageTemplateIndex === -1) {
-    return [...history, { role: "user", content: userMessage }]; // Fallback
+    return [...history, { role: "user", content: userMessage }]; 
   }
 
   const prefixMessages = messagesTemplate.slice(0, userMessageTemplateIndex);
@@ -143,9 +133,6 @@ export function buildDynamicMessages(
   return [...prefixMessages, ...history, newUserMessage, ...suffixMessages];
 }
 
-/**
- * Recursively walks through an object and replaces variable placeholders.
- */
 export function deepVariableReplacer(
   node: any,
   variables: Record<string, string>
@@ -170,9 +157,6 @@ export function deepVariableReplacer(
   return node;
 }
 
-/**
- * Extracts content from a streaming API response chunk by trying a series of common JSON paths.
- */
 export function getStreamingContent(
   chunk: any,
   defaultPath: string

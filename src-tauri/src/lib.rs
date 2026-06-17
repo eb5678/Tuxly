@@ -29,18 +29,13 @@ pub fn run() {
         .manage(shortcuts::RegisteredShortcuts::default())
         .manage(shortcuts::MoveWindowState::default())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_http::init())
-        .plugin(tauri_plugin_keychain::init())
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_machine_uid::init());
+        .plugin(tauri_plugin_http::init());
         
     let builder = builder
         .invoke_handler(tauri::generate_handler![
             get_app_version,
             window::open_dashboard,
             window::toggle_dashboard,
-            window::move_window,
-            shortcuts::get_registered_shortcuts,
             shortcuts::update_shortcuts,
             speaker::start_system_audio_capture,
             speaker::stop_system_audio_capture,
@@ -90,9 +85,6 @@ pub fn run() {
                     .build(),
             ).expect("Failed to initialize global shortcut plugin");
 
-            if let Err(e) = shortcuts::setup_global_shortcuts(app.handle()) {
-                eprintln!("Failed to setup global shortcuts: {}", e);
-            }
             Ok(())
         });
 

@@ -13,12 +13,10 @@ interface ShortcutRecorderProps {
 export const ShortcutRecorder = ({ onSave, onCancel, disabled = false, actionId }: ShortcutRecorderProps) => {
   const [recordedKeys, setRecordedKeys] = useState<string[]>([]);
   const [error, setError] = useState<string>("");
-  const isRecording = true; 
   const isMoveWindow = actionId === "move_window";
   const minKeys = isMoveWindow ? 1 : 2;
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-      if (!isRecording) return;
       e.preventDefault();
       e.stopPropagation();
 
@@ -65,26 +63,23 @@ export const ShortcutRecorder = ({ onSave, onCancel, disabled = false, actionId 
         }
       }
     },
-    [isRecording, isMoveWindow]
+    [isMoveWindow]
   );
   
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
-    if (!isRecording) return;
     e.preventDefault();
     e.stopPropagation();
-  }, [isRecording]);
+  }, []);
 
   useEffect(() => {
-    if (isRecording) {
-      window.focus();
-      window.addEventListener("keydown", handleKeyDown, true);
-      window.addEventListener("keyup", handleKeyUp, true);
-      return () => {
-        window.removeEventListener("keydown", handleKeyDown, true);
-        window.removeEventListener("keyup", handleKeyUp, true);
-      };
-    }
-  }, [isRecording, handleKeyDown, handleKeyUp]);
+    window.focus();
+    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keyup", handleKeyUp, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keyup", handleKeyUp, true);
+    };
+  }, [handleKeyDown, handleKeyUp]);
 
   const handleSave = async () => {
     if (recordedKeys.length < minKeys) {

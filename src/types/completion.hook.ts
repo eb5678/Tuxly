@@ -23,16 +23,11 @@ export interface UseCompletionReturn {
   clearFiles: () => void;
 
   submit: (speechText?: string) => Promise<void>;
-  cancel: () => void;
-  reset: () => void;
 
   isRecording: boolean;
   setIsRecording: Dispatch<SetStateAction<boolean>>;
   isTranscribing: boolean;
   toggleManualRecording: () => Promise<void>;
-
-  micOpen: boolean;
-  setMicOpen: Dispatch<SetStateAction<boolean>>;
 
   currentConversationId: string | null;
   conversationHistory: any[];
@@ -53,5 +48,3 @@ export interface UseCompletionReturn {
   
   streamingTextRef: RefObject<HTMLDivElement | null>; 
 }
-
-export type UseCompletionHook = () => UseCompletionReturn;

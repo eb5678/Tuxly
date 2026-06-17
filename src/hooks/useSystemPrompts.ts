@@ -38,7 +38,6 @@ export const useSystemPrompts = () => {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to fetch system prompts";
       setError(errorMessage);
-      console.error("Error fetching system prompts:", err);
     } finally {
       setIsLoading(false);
     }
@@ -49,13 +48,12 @@ export const useSystemPrompts = () => {
       try {
         setError(null);
         const result = await createSystemPrompt(input);
-        await fetchPrompts(); // Refresh list
+        await fetchPrompts(); 
         return result;
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to create system prompt";
         setError(errorMessage);
-        console.error("Error creating system prompt:", err);
         throw err;
       }
     },
@@ -70,13 +68,12 @@ export const useSystemPrompts = () => {
       try {
         setError(null);
         const result = await updateSystemPrompt(id, input);
-        await fetchPrompts(); // Refresh list
+        await fetchPrompts(); 
         return result;
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to update system prompt";
         setError(errorMessage);
-        console.error("Error updating system prompt:", err);
         throw err;
       }
     },
@@ -88,21 +85,16 @@ export const useSystemPrompts = () => {
       try {
         setError(null);
         await deleteSystemPrompt(id);
-        await fetchPrompts(); // Refresh list
+        await fetchPrompts(); 
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to delete system prompt";
         setError(errorMessage);
-        console.error("Error deleting system prompt:", err);
         throw err;
       }
     },
     [fetchPrompts]
   );
-
-  const refreshPrompts = useCallback(async () => {
-    await fetchPrompts();
-  }, [fetchPrompts]);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -163,7 +155,6 @@ export const useSystemPrompts = () => {
     createPrompt,
     updatePrompt,
     deletePrompt,
-    refreshPrompts,
     clearError,
     handleSelectPrompt,
   };

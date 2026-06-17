@@ -7,7 +7,6 @@ let globalEventListeners: { [key: string]: UnlistenFn | undefined } = {};
 
 let globalInputRef: HTMLInputElement | null = null;
 let globalAudioCallback: (() => void) | null = null;
-let globalCustomShortcutCallbacks: Map<string, () => void> = new Map();
 
 export const useGlobalShortcuts = () => {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -35,14 +34,6 @@ export const useGlobalShortcuts = () => {
         globalEventListeners.audio = await listen("start-audio-recording", () => {
           if (globalAudioCallback) globalAudioCallback();
         });
-
-        globalEventListeners.customShortcut = await listen<{ action: string }>(
-          "custom-shortcut-triggered",
-          (event) => {
-            const cb = globalCustomShortcutCallbacks.get(event.payload.action);
-            if (cb) cb();
-          }
-        );
 
         globalEventListeners.registrationError = await listen<Array<[string, string, string]>>(
           "shortcut-registration-error",
@@ -91,12 +82,6 @@ export const useGlobalShortcuts = () => {
             case "toggle_dashboard":
               invoke("toggle_dashboard").catch(console.error);
               break;
-            case "toggle_window":
-              invoke("toggle_window").catch(console.error);
-              break;
-            default:
-              const cb = globalCustomShortcutCallbacks.get(actionId);
-              if (cb) cb();
           }
           return;
         }

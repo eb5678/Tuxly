@@ -47,22 +47,6 @@ pub struct ShortcutsConfig {
     pub bindings: HashMap<String, ShortcutBinding>,
 }
 
-pub fn setup_global_shortcuts<R: Runtime>(
-    app: &AppHandle<R>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let state = app.state::<RegisteredShortcuts>();
-    let _registered = match state.shortcuts.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => {
-            eprintln!("Mutex poisoned in setup, recovering...");
-            poisoned.into_inner()
-        }
-    };
-    eprintln!("Global shortcuts state initialized, waiting for frontend config");
-
-    Ok(())
-}
-
 pub fn handle_shortcut_action<R: Runtime>(app: &AppHandle<R>, action_id: &str) {
     match action_id {
         "toggle_dashboard" => handle_toggle_dashboard(app),
@@ -72,17 +56,7 @@ pub fn handle_shortcut_action<R: Runtime>(app: &AppHandle<R>, action_id: &str) {
         "move_window_left" => handle_move_window(app, "left"),
         "move_window_right" => handle_move_window(app, "right"),
         "audio_recording" => handle_audio_shortcut(app),
-        "screenshot" => handle_screenshot_shortcut(app),
-        custom_action => {
-            if let Some(window) = app.get_webview_window("main") {
-                if let Err(e) = window.emit(
-                    "custom-shortcut-triggered",
-                    serde_json::json!({ "action": custom_action }),
-                ) {
-                    eprintln!("Failed to emit custom shortcut event: {}", e);
-                }
-            }
-        }
+        _ => {}
     }
 }
 
@@ -153,36 +127,11 @@ fn handle_audio_shortcut<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-fn handle_screenshot_shortcut<R: Runtime>(app: &AppHandle<R>) {
-    if let Some(window) = app.get_webview_window("main") {
-        if let Err(e) = window.emit("trigger-screenshot", json!({})) {
-            eprintln!("Failed to emit screenshot event: {}", e);
-        }
-    }
-}
-
-#[tauri::command]
-pub fn get_registered_shortcuts<R: Runtime>(
-    app: AppHandle<R>,
-) -> Result<HashMap<String, String>, String> {
-    let state = app.state::<RegisteredShortcuts>();
-    let registered = match state.shortcuts.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => {
-            eprintln!("Mutex poisoned in get_registered_shortcuts, recovering...");
-            poisoned.into_inner()
-        }
-    };
-    Ok(registered.clone())
-}
-
 #[tauri::command]
 pub fn update_shortcuts<R: Runtime>(
     app: AppHandle<R>,
     config: ShortcutsConfig,
 ) -> Result<(), String> {
-    eprintln!("Updating shortcuts with {} bindings", config.bindings.len());
-
     let mut shortcuts_to_register = Vec::new();
 
     for (action_id, binding) in &config.bindings {
@@ -202,15 +151,10 @@ pub fn update_shortcuts<R: Runtime>(
                             shortcuts_to_register.push((direction_action_id, full_key, shortcut));
                         }
                         Err(e) => {
-                            eprintln!("Invalid shortcut '{}' for move_window: {}", full_key, e);
-                            return Err(format!(
-                                "Invalid shortcut '{}' for move_window: {}",
-                                full_key, e
-                            ));
+                            return Err(format!("Invalid shortcut '{}': {}", full_key, e));
                         }
                     }
                 }
-
                 continue;
             }
 
@@ -219,14 +163,7 @@ pub fn update_shortcuts<R: Runtime>(
                     shortcuts_to_register.push((action_id.clone(), binding.key.clone(), shortcut));
                 }
                 Err(e) => {
-                    eprintln!(
-                        "Invalid shortcut '{}' for action '{}': {}",
-                        binding.key, action_id, e
-                    );
-                    return Err(format!(
-                        "Invalid shortcut '{}' for action '{}': {}",
-                        binding.key, action_id, e
-                    ));
+                    return Err(format!("Invalid shortcut '{}': {}", binding.key, e));
                 }
             }
         }
@@ -241,11 +178,9 @@ pub fn update_shortcuts<R: Runtime>(
     for (action_id, shortcut_str, shortcut) in shortcuts_to_register {
         match app.global_shortcut().register(shortcut) {
             Ok(_) => {
-                eprintln!("Registered shortcut: {} -> {}", action_id, shortcut_str);
                 successfully_registered.insert(action_id, shortcut_str);
             }
             Err(e) => {
-                eprintln!("Failed to register {} shortcut: {}", action_id, e);
                 registration_failures.push((action_id, shortcut_str, e.to_string()));
             }
         }
@@ -255,10 +190,7 @@ pub fn update_shortcuts<R: Runtime>(
         let state = app.state::<RegisteredShortcuts>();
         let mut registered = match state.shortcuts.lock() {
             Ok(guard) => guard,
-            Err(poisoned) => {
-                eprintln!("Mutex poisoned in update_shortcuts, recovering...");
-                poisoned.into_inner()
-            }
+            Err(poisoned) => poisoned.into_inner()
         };
 
         registered.clear();
@@ -267,9 +199,7 @@ pub fn update_shortcuts<R: Runtime>(
 
     if !registration_failures.is_empty() {
         if let Some(window) = app.get_webview_window("main") {
-            if let Err(e) = window.emit("shortcut-registration-error", &registration_failures) {
-                eprintln!("Failed to emit shortcut registration error event: {}", e);
-            }
+            let _ = window.emit("shortcut-registration-error", &registration_failures);
         }
 
         let error_messages: Vec<String> = registration_failures
@@ -277,10 +207,7 @@ pub fn update_shortcuts<R: Runtime>(
             .map(|(action, key, error)| format!("{} ({}) - {}", action, key, error))
             .collect();
 
-        return Err(format!(
-            "Some shortcuts could not be registered: {}",
-            error_messages.join("; ")
-        ));
+        return Err(format!("Could not register: {}", error_messages.join("; ")));
     }
 
     Ok(())
@@ -290,22 +217,12 @@ fn unregister_all_shortcuts<R: Runtime>(app: &AppHandle<R>) -> Result<(), String
     let state = app.state::<RegisteredShortcuts>();
     let registered = match state.shortcuts.lock() {
         Ok(guard) => guard,
-        Err(poisoned) => {
-            eprintln!("Mutex poisoned in unregister_all_shortcuts, recovering...");
-            poisoned.into_inner()
-        }
+        Err(poisoned) => poisoned.into_inner()
     };
 
-    for (action_id, shortcut_str) in registered.iter() {
+    for (_, shortcut_str) in registered.iter() {
         if let Ok(shortcut) = shortcut_str.parse::<Shortcut>() {
-            match app.global_shortcut().unregister(shortcut) {
-                Ok(_) => {
-                    eprintln!("Unregistered shortcut: {} -> {}", action_id, shortcut_str);
-                }
-                Err(e) => {
-                    eprintln!("Failed to unregister shortcut {}: {}", shortcut_str, e);
-                }
-            }
+            let _ = app.global_shortcut().unregister(shortcut);
         }
     }
 
@@ -316,27 +233,16 @@ fn handle_toggle_dashboard<R: Runtime>(app: &AppHandle<R>) {
     if let Some(dashboard_window) = app.get_webview_window("dashboard") {
         match dashboard_window.is_visible() {
             Ok(true) => {
-                if let Err(e) = dashboard_window.close() {
-                    eprintln!("Failed to close dashboard window: {}", e);
-                }
+                let _ = dashboard_window.close();
             }
             Ok(false) => {
-                if let Err(e) = dashboard_window.show() {
-                    eprintln!("Failed to show dashboard window: {}", e);
-                }
-                if let Err(e) = dashboard_window.set_focus() {
-                    eprintln!("Failed to focus dashboard window: {}", e);
-                }
+                let _ = dashboard_window.show();
+                let _ = dashboard_window.set_focus();
             }
-            Err(e) => {
-                eprintln!("Failed to check dashboard visibility: {}", e);
-            }
+            Err(_) => {}
         }
     } else {
-        match show_dashboard_window(app) {
-            Ok(_) => eprintln!("Dashboard window created and shown successfully"),
-            Err(e) => eprintln!("Failed to create/show dashboard window: {}", e),
-        }
+        let _ = show_dashboard_window(app);
     }
 }
 
@@ -353,34 +259,20 @@ fn handle_focus_input<R: Runtime>(app: &AppHandle<R>) {
 
 fn handle_move_window<R: Runtime>(app: &AppHandle<R>, direction: &str) {
     if let Some(window) = app.get_webview_window("main") {
-        match window.outer_position() {
-            Ok(current_pos) => {
-                let step = 12;
-                let (new_x, new_y) = match direction {
-                    "up" => (current_pos.x, current_pos.y - step),
-                    "down" => (current_pos.x, current_pos.y + step),
-                    "left" => (current_pos.x - step, current_pos.y),
-                    "right" => (current_pos.x + step, current_pos.y),
-                    _ => {
-                        eprintln!("Invalid direction: {}", direction);
-                        return;
-                    }
-                };
+        if let Ok(current_pos) = window.outer_position() {
+            let step = 12;
+            let (new_x, new_y) = match direction {
+                "up" => (current_pos.x, current_pos.y - step),
+                "down" => (current_pos.x, current_pos.y + step),
+                "left" => (current_pos.x - step, current_pos.y),
+                "right" => (current_pos.x + step, current_pos.y),
+                _ => return,
+            };
 
-                if let Err(e) =
-                    window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                        x: new_x,
-                        y: new_y,
-                    }))
-                {
-                    eprintln!("Failed to set window position: {}", e);
-                }
-            }
-            Err(e) => {
-                eprintln!("Failed to get window position: {}", e);
-            }
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+                x: new_x,
+                y: new_y,
+            }));
         }
-    } else {
-        eprintln!("Main window not found");
     }
 }

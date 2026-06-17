@@ -10,7 +10,6 @@ pub fn setup_main_window(app: &mut App) -> Result<(), Box<dyn std::error::Error>
         .ok_or("No window found")?;
     position_window_top_center(&window, TOP_OFFSET)?;
     
-    // Explicitly enforce priority for Wayland compositors (always_on_top shifted to be managed natively by Cosmic)
     let _ = window.set_visible_on_all_workspaces(true);
     
     Ok(())
@@ -56,23 +55,6 @@ pub fn toggle_dashboard(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn move_window(app: tauri::AppHandle, direction: String, step: i32) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("main") {
-        let current_pos = window.outer_position().map_err(|e| format!("Error: {}", e))?;
-        let (new_x, new_y) = match direction.as_str() {
-            "up" => (current_pos.x, current_pos.y - step),
-            "down" => (current_pos.x, current_pos.y + step),
-            "left" => (current_pos.x - step, current_pos.y),
-            "right" => (current_pos.x + step, current_pos.y),
-            _ => return Err(format!("Invalid direction: {}", direction)),
-        };
-        window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: new_x, y: new_y }))
-            .map_err(|e| format!("Failed: {}", e))?;
-    }
-    Ok(())
-}
-
 pub fn create_dashboard_window<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<WebviewWindow<R>, tauri::Error> {
@@ -85,7 +67,7 @@ pub fn create_dashboard_window<R: Runtime>(
         .transparent(false)
         .inner_size(800.0, 600.0)
         .min_inner_size(800.0, 600.0)
-        .visible(true); // <--- Build as visible immediately to avoid Wayland CSD issues
+        .visible(true); 
 
     let window = base_builder.build()?;
 
@@ -102,9 +84,6 @@ pub fn show_dashboard_window<R: Runtime>(app: &AppHandle<R>) -> Result<(), Strin
     w.show().map_err(|e| format!("Failed to show window: {}", e))?;
     w.set_focus().map_err(|e| format!("Failed to focus window: {}", e))?;
     
-    // In case the window already existed but was hidden, a tiny resizing trick 
-    // forces the Wayland compositor to recalculate the CSD bounds immediately.
-    // This is invisible to the user but resolves the interaction glitch completely.
     if let Ok(size) = w.inner_size() {
         let _ = w.set_size(tauri::Size::Physical(tauri::PhysicalSize {
             width: size.width + 1,

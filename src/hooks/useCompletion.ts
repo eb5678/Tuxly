@@ -12,41 +12,9 @@ import {
   generateRequestId,
   fetchSTT,
 } from "@/lib";
+import { AttachedFile, ChatMessage, ChatConversation, CompletionState } from "@/types";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-
-interface AttachedFile {
-  id: string;
-  name: string;
-  type: string;
-  base64: string;
-  size: number;
-}
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  timestamp: number;
-}
-
-interface ChatConversation {
-  id: string;
-  title: string;
-  messages: ChatMessage[];
-  createdAt: number;
-  updatedAt: number;
-}
-
-interface CompletionState {
-  input: string;
-  response: string;
-  isLoading: boolean;
-  error: string | null;
-  attachedFiles: AttachedFile[];
-  currentConversationId: string | null;
-  conversationHistory: ChatMessage[];
-}
 
 export const useCompletion = () => {
   const {
@@ -71,7 +39,6 @@ export const useCompletion = () => {
     conversationHistory: [],
   });
   
-  const [micOpen, setMicOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isFilesPopoverOpen, setIsFilesPopoverOpen] = useState(false);
@@ -220,7 +187,6 @@ export const useCompletion = () => {
                 scrollElement.scrollTop -
                 scrollElement.clientHeight;
 
-              // Only auto-scroll down if user remains near bottom
               if (distanceToBottom <= THRESHOLD) {
                 scrollElement.scrollTo({
                   top: scrollElement.scrollHeight,
@@ -335,7 +301,6 @@ export const useCompletion = () => {
             });
             if (text) submit(text);
           } catch (e: any) {
-             console.error("STT Conversion Error:", e);
              setState((prev: any) => ({ ...prev, error: "Transcription failed." }));
           } finally {
              setIsTranscribing(false);
@@ -344,8 +309,7 @@ export const useCompletion = () => {
           }
         });
 
-        unlistenErrorRef.current = await listen("audio-encoding-error", (event: any) => {
-          console.warn("Audio processing aborted:", event.payload);
+        unlistenErrorRef.current = await listen("audio-encoding-error", () => {
           setIsTranscribing(false);
           setIsRecording(false);
           isMicBusyRef.current = false;
@@ -377,28 +341,6 @@ export const useCompletion = () => {
        cleanupAudio();
     };
   }, [cleanupAudio]);
-
-  const cancel = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    currentRequestIdRef.current = null;
-    setState((prev) => ({ ...prev, isLoading: false }));
-  }, []);
-
-  const reset = useCallback(() => {
-    cancel();
-    setState((prev) => ({
-      ...prev,
-      input: "",
-      response: "",
-      error: null,
-      attachedFiles: [],
-    }));
-    rawStreamBufferRef.current = "";
-    if (streamingTextRef.current) streamingTextRef.current.textContent = "";
-  }, [cancel]);
 
   const fileToBase64 = useCallback(async (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -477,9 +419,7 @@ export const useCompletion = () => {
           existingConversation = await getConversationById(
             state.currentConversationId
           );
-        } catch (error) {
-          console.error("Failed to get existing conversation:", error);
-        }
+        } catch (error) {}
       }
 
       const title =
@@ -525,9 +465,7 @@ export const useCompletion = () => {
         if (conversation) {
           loadConversation(conversation);
         }
-      } catch (error) {
-         console.error("Failed to load conversation:", error);
-      }
+      } catch (error) {}
     };
 
     const handleNewConversation = () => {
@@ -597,8 +535,7 @@ export const useCompletion = () => {
               break;
             }
           }
-        } catch {
-        }
+        } catch {}
       }
 
       if (hasImages) {
@@ -695,14 +632,10 @@ export const useCompletion = () => {
     removeFile,
     clearFiles,
     submit,
-    cancel,
-    reset,
     isRecording,
     setIsRecording,
     isTranscribing,
     toggleManualRecording,
-    micOpen,
-    setMicOpen,
     currentConversationId: state.currentConversationId,
     conversationHistory: state.conversationHistory,
     loadConversation,
