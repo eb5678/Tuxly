@@ -1,14 +1,13 @@
-import { AudioWaveformIcon, MicIcon, LoaderIcon, AlertCircleIcon } from "lucide-react";
+import { MicIcon, LoaderIcon, AlertCircleIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type StatusType = "ready" | "listening" | "recording" | "processing" | "ai-processing" | "error";
+type StatusType = "ready" | "recording" | "processing" | "ai-processing" | "error";
 
 type Props = {
   setupRequired: boolean;
   setIsPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   resizeWindow: (expanded: boolean) => Promise<void>;
   capturing: boolean;
-  isVadMode: boolean;
   isRecording: boolean;
   isProcessing: boolean;
   isAIProcessing: boolean;
@@ -16,8 +15,6 @@ type Props = {
 };
 
 const getStatus = (
-  capturing: boolean,
-  isVadMode: boolean,
   isRecording: boolean,
   isProcessing: boolean,
   isAIProcessing: boolean,
@@ -27,7 +24,6 @@ const getStatus = (
   if (isAIProcessing) return "ai-processing";
   if (isProcessing) return "processing";
   if (isRecording) return "recording";
-  if (capturing && isVadMode) return "listening";
   return "ready";
 };
 
@@ -39,12 +35,6 @@ const STATUS_CONFIG: Record<
     label: "Ready",
     color: "text-muted-foreground",
     bgColor: "bg-muted",
-  },
-  listening: {
-    label: "Listening",
-    color: "text-teal-600",
-    bgColor: "bg-teal-100",
-    icon: <AudioWaveformIcon className="w-3 h-3" />,
   },
   recording: {
     label: "Recording",
@@ -74,14 +64,12 @@ const STATUS_CONFIG: Record<
 
 export const Header = ({
   setupRequired,
-  capturing,
-  isVadMode,
   isRecording,
   isProcessing,
   isAIProcessing,
   error,
 }: Props) => {
-  const status = getStatus(capturing, isVadMode, isRecording, isProcessing, isAIProcessing, error);
+  const status = getStatus(isRecording, isProcessing, isAIProcessing, error);
   const statusConfig = STATUS_CONFIG[status];
 
   return (
@@ -102,7 +90,7 @@ export const Header = ({
             {statusConfig.label}
           </span>
           <span className="text-[10px] text-muted-foreground">
-            {isVadMode ? "Auto-detect" : "Manual"} mode
+            Manual Recording mode
           </span>
         </div>
       )}

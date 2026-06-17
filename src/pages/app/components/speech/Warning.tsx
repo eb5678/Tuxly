@@ -3,16 +3,11 @@ import {
   InfoIcon,
   ChevronDownIcon,
   KeyboardIcon,
-  AudioWaveformIcon,
   MicIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface WarningProps {
-  isVadMode: boolean;
-}
-
-export const Warning = ({ isVadMode }: WarningProps) => {
+export const Warning = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const modKey = "Alt";
 
@@ -38,19 +33,11 @@ export const Warning = ({ isVadMode }: WarningProps) => {
       {isExpanded && (
         <div className="px-3 pb-3 space-y-3">
           <div className="flex items-start gap-2 p-2 rounded-md bg-primary/5">
-            {isVadMode ? (
-              <AudioWaveformIcon className="w-4 h-4 text-primary mt-0.5" />
-            ) : (
-              <MicIcon className="w-4 h-4 text-primary mt-0.5" />
-            )}
+            <MicIcon className="w-4 h-4 text-primary mt-0.5" />
             <div>
-              <p className="text-xs font-medium">
-                {isVadMode ? "Auto-detect Mode" : "Manual Mode"}
-              </p>
+              <p className="text-xs font-medium">Manual Recording Mode</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">
-                {isVadMode
-                  ? "Speech is automatically detected from system audio. When someone speaks, it will be captured and transcribed."
-                  : "Press the record button or use keyboard shortcuts to manually control recording."}
+                Press the record button or use global keyboard shortcuts to start, stop, or discard your recordings.
               </p>
             </div>
           </div>
@@ -75,28 +62,24 @@ export const Warning = ({ isVadMode }: WarningProps) => {
                   ↑
                 </kbd>
               </div>
-              {!isVadMode && (
-                <>
-                  <div className="flex items-center justify-between p-1.5 rounded bg-muted/50">
-                    <span className="text-muted-foreground">Start/Stop</span>
-                    <kbd className="px-1.5 py-0.5 rounded bg-background border border-border font-mono">
-                      Enter
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-1.5 rounded bg-muted/50">
-                    <span className="text-muted-foreground">Start record</span>
-                    <kbd className="px-1.5 py-0.5 rounded bg-background border border-border font-mono">
-                      Space
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-1.5 rounded bg-muted/50">
-                    <span className="text-muted-foreground">Discard</span>
-                    <kbd className="px-1.5 py-0.5 rounded bg-background border border-border font-mono">
-                      Esc
-                    </kbd>
-                  </div>
-                </>
-              )}
+              <div className="flex items-center justify-between p-1.5 rounded bg-muted/50">
+                <span className="text-muted-foreground">Start/Stop</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-background border border-border font-mono">
+                  Enter
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between p-1.5 rounded bg-muted/50">
+                <span className="text-muted-foreground">Start record</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-background border border-border font-mono">
+                  Space
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between p-1.5 rounded bg-muted/50">
+                <span className="text-muted-foreground">Discard</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-background border border-border font-mono">
+                  Esc
+                </kbd>
+              </div>
               <div className="flex items-center justify-between p-1.5 rounded bg-muted/50">
                 <span className="text-muted-foreground">Toggle view</span>
                 <kbd className="px-1.5 py-0.5 rounded bg-background border border-border font-mono">
@@ -108,13 +91,7 @@ export const Warning = ({ isVadMode }: WarningProps) => {
 
           <div className="text-[10px] text-muted-foreground space-y-1 pt-2 border-t border-border/50">
             <p>
-              <strong>Tip:</strong> Paste your PopOS screenshot (`Ctrl+V`) to quickly attach photos.
-            </p>
-            <p>
-              <strong>Tip:</strong> Use Auto-detect for hands-free operation during interviews.
-            </p>
-            <p>
-              <strong>Tip:</strong> Quick Actions let you send follow-up prompts with one click.
+              <strong>Tip:</strong> Use Quick Actions to send custom instructions on top of the captured audio.
             </p>
           </div>
         </div>

@@ -5,12 +5,10 @@ mod speaker;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use tokio::task::JoinHandle;
-use speaker::VadConfig;
 
 #[derive(Default)]
 pub struct AudioState {
     stream_task: Arc<Mutex<Option<JoinHandle<()>>>>,
-    vad_config: Arc<Mutex<VadConfig>>,
     is_capturing: Arc<Mutex<bool>>,
 }
 
@@ -54,8 +52,6 @@ pub fn run() {
             speaker::manual_stop_continuous,
             speaker::check_system_audio_access,
             speaker::request_system_audio_access,
-            speaker::get_vad_config,
-            speaker::update_vad_config,
             speaker::get_capture_status,
             speaker::get_audio_sample_rate,
             speaker::get_input_devices,

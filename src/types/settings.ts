@@ -102,8 +102,6 @@ export interface SettingsState {
   availableModels: string[];
   isLoadingModels: boolean;
   modelsFetchError: string | null;
-  openAiApiKey: string;
-  isOpenAiApiKeySubmitted: boolean;
   screenshotConfig: ScreenshotConfig;
   selectedSpeechProvider: string;
   speechProviders: SpeechProvider[];

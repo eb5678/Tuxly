@@ -14,7 +14,6 @@ import {
   PlusIcon,
   XIcon,
 } from "lucide-react";
-import { ModeSwitcher } from "./ModeSwitcher";
 import { RecordingPanel } from "./RecordingPanel";
 import { ResultsSection } from "./ResultsSection";
 import { SettingsPanel } from "./SettingsPanel";
@@ -52,8 +51,8 @@ export const SystemAudio = (props: useSystemAudioType) => {
     showQuickActions,
     setShowQuickActions,
     handleQuickActionClick,
-    vadConfig,
-    updateVadConfiguration,
+    maxRecordingDuration,
+    handleMaxDurationChange,
     isRecordingInContinuousMode,
     recordingProgress,
     manualStopAndSend,
@@ -62,10 +61,7 @@ export const SystemAudio = (props: useSystemAudioType) => {
     scrollAreaRef,
   } = props;
 
-  // View mode toggle
   const [conversationMode, setConversationMode] = useState(false);
-
-  const isVadMode = vadConfig.enabled;
   const hasResponse = lastAIResponse || isAIProcessing;
 
   useEffect(() => {
@@ -88,13 +84,6 @@ export const SystemAudio = (props: useSystemAudioType) => {
     } else {
       await startCapture();
     }
-  };
-
-  const handleModeChange = (vadEnabled: boolean) => {
-    updateVadConfiguration({
-      ...vadConfig,
-      enabled: vadEnabled,
-    });
   };
 
   const getButtonIcon = () => {
@@ -150,15 +139,9 @@ export const SystemAudio = (props: useSystemAudioType) => {
             <div className="flex-shrink-0 p-3 border-b border-border/50">
               <div className="flex items-center justify-between gap-2">
                 {!setupRequired && (
-                  <ModeSwitcher
-                    isVadMode={isVadMode}
-                    onModeChange={handleModeChange}
-                    disabled={
-                      isRecordingInContinuousMode ||
-                      isProcessing ||
-                      isAIProcessing
-                    }
-                  />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase py-1">
+                    System Audio Recording
+                  </span>
                 )}
                 {setupRequired && (
                   <h2 className="font-semibold text-sm">Setup Required</h2>
@@ -215,19 +198,16 @@ export const SystemAudio = (props: useSystemAudioType) => {
                     onPermissionGranted={() => {
                       startCapture();
                     }}
-                    onPermissionDenied={() => {
-                      // instructions
-                    }}
+                    onPermissionDenied={() => {}}
                   />
                 ) : (
                   <>
                     <RecordingPanel
-                      isVadMode={isVadMode}
                       isRecording={isRecordingInContinuousMode}
                       isProcessing={isProcessing}
                       isAIProcessing={isAIProcessing}
                       recordingProgress={recordingProgress}
-                      maxDuration={vadConfig.max_recording_duration_secs}
+                      maxDuration={maxRecordingDuration}
                       onStartRecording={startContinuousRecording}
                       onStopAndSend={manualStopAndSend}
                       onIgnore={ignoreContinuousRecording}
@@ -243,15 +223,15 @@ export const SystemAudio = (props: useSystemAudioType) => {
                     />
 
                     <SettingsPanel
-                      vadConfig={vadConfig}
-                      onUpdateVadConfig={updateVadConfiguration}
+                      maxRecordingDuration={maxRecordingDuration}
+                      onMaxDurationChange={handleMaxDurationChange}
                       useSystemPrompt={useSystemPrompt}
                       setUseSystemPrompt={setUseSystemPrompt}
                       contextContent={contextContent}
                       setContextContent={setContextContent}
                     />
 
-                    <Warning isVadMode={isVadMode} />
+                    <Warning />
                   </>
                 )}
               </div>

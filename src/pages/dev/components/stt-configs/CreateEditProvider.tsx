@@ -90,10 +90,6 @@ export const CreateEditProvider = ({
                   "h-74 font-mono text-sm",
                   errors.curl && "border-red-500"
                 )}
-                placeholder={`curl -X POST "https://api.openai.com/v1/audio/transcriptions" \\
-      -H "Authorization: Bearer {{API_KEY}}" \\
-      -F "file={{AUDIO}}" \\
-      -F "model={{MODEL}}"`}
                 value={formData.curl}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, curl: e.target.value }))

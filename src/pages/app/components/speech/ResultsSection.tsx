@@ -31,7 +31,6 @@ export const ResultsSection = ({
 
   return (
     <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-3">
-      {/* Header with toggle */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <SparklesIcon className="w-3.5 h-3.5 text-primary" />
@@ -52,17 +51,14 @@ export const ResultsSection = ({
         </div>
       </div>
 
-      {/* RESPONSE MODE: System as text, then AI response */}
       {!conversationMode && (
         <div className="space-y-2">
-          {/* System Input - Just text with bold label */}
           {lastTranscription && (
             <p className="text-[11px] text-muted-foreground">
-              <span className="font-semibold">System:</span> {lastTranscription}
+              <span className="font-semibold">Captured:</span> {lastTranscription}
             </p>
           )}
 
-          {/* AI Response */}
           {hasResponse && (
             <div>
               {isAIProcessing && !lastAIResponse ? (
@@ -85,10 +81,8 @@ export const ResultsSection = ({
         </div>
       )}
 
-      {/* CONVERSATION MODE: AI on top, then System, then history */}
       {conversationMode && (
         <div className="space-y-2">
-          {/* AI Response - First (on top) */}
           {hasResponse && (
             <div className="rounded-md bg-background/50 p-2.5">
               <div className="flex items-center gap-1.5 mb-1">
@@ -115,20 +109,18 @@ export const ResultsSection = ({
             </div>
           )}
 
-          {/* System Input - Second */}
           {lastTranscription && (
             <div className="rounded-md border-l-2 border-primary/50 bg-primary/5 p-2.5">
               <div className="flex items-center gap-1.5 mb-1">
                 <HeadphonesIcon className="h-3 w-3 text-primary" />
                 <span className="text-[9px] font-medium text-primary uppercase tracking-wide">
-                  System
+                  Captured Voice
                 </span>
               </div>
               <p className="text-sm">{lastTranscription}</p>
             </div>
           )}
 
-          {/* Previous Messages */}
           {hasHistory && (
             <div className="space-y-2 pt-2 border-t border-border/50">
               <p className="text-[9px] text-muted-foreground uppercase tracking-wide">
@@ -149,7 +141,7 @@ export const ResultsSection = ({
                       )}
                     >
                       <span className="text-[8px] font-medium text-muted-foreground uppercase">
-                        {message.role === "user" ? "System" : "AI"}
+                        {message.role === "user" ? "Captured" : "AI"}
                       </span>
                       <div className="text-muted-foreground leading-relaxed mt-0.5">
                         <Markdown>{message.content}</Markdown>
