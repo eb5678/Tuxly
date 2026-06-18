@@ -12,15 +12,12 @@ export interface UseCompletionReturn {
   setInput: (value: string) => void;
 
   response: string;
-  setResponse: (value: string) => void;
 
   isLoading: boolean;
   error: string | null;
 
   attachedFiles: any[];
-  addFile: (file: File) => Promise<void>;
   removeFile: (fileId: string) => void;
-  clearFiles: () => void;
 
   submit: (speechText?: string) => Promise<void>;
 
@@ -29,7 +26,6 @@ export interface UseCompletionReturn {
   isTranscribing: boolean;
   toggleManualRecording: () => Promise<void>;
 
-  currentConversationId: string | null;
   conversationHistory: any[];
   loadConversation: (conversation: any) => void;
   startNewConversation: () => void;

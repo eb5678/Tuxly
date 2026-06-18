@@ -5,7 +5,6 @@ export type IContextType = {
   systemPrompt: string;
   setSystemPrompt: Dispatch<SetStateAction<string>>;
   allAiProviders: TYPE_PROVIDER[];
-  customAiProviders: TYPE_PROVIDER[];
   selectedAIProvider: {
     provider: string;
     variables: Record<string, string>;
@@ -18,7 +17,6 @@ export type IContextType = {
     variables: Record<string, string>;
   }) => void;
   allSttProviders: TYPE_PROVIDER[];
-  customSttProviders: TYPE_PROVIDER[];
   selectedSttProvider: {
     provider: string;
     variables: Record<string, string>;
@@ -42,5 +40,4 @@ export type IContextType = {
     }>
   >;
   supportsImages: boolean;
-  setSupportsImages: (value: boolean) => void;
 };

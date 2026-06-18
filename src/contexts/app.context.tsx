@@ -264,18 +264,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     systemPrompt,
     setSystemPrompt,
     allAiProviders,
-    customAiProviders,
     selectedAIProvider,
     onSetSelectedAIProvider,
     allSttProviders,
-    customSttProviders,
     selectedSttProvider,
     onSetSelectedSttProvider,
     loadData,
     selectedAudioDevices,
     setSelectedAudioDevices,
     supportsImages,
-    setSupportsImages,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

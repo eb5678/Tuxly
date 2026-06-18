@@ -1,9 +1,7 @@
+// src/lib/database/config.ts
 import Database from "@tauri-apps/plugin-sql";
 
-/**
- * Database configuration
- */
-export const DB_NAME = "sqlite:pluely.db";
+const DB_NAME = "sqlite:pluely.db";
 
 let dbInstance: Database | null = null;
 

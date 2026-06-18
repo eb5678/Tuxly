@@ -56,10 +56,6 @@ export const useCompletion = () => {
     setState((prev) => ({ ...prev, input: value }));
   }, []);
 
-  const setResponse = useCallback((value: string) => {
-    setState((prev) => ({ ...prev, response: value }));
-  }, []);
-
   const addFile = useCallback(async (file: File) => {
     try {
       const base64 = await fileToBase64(file);
@@ -85,10 +81,6 @@ export const useCompletion = () => {
       ...prev,
       attachedFiles: prev.attachedFiles.filter((f) => f.id !== fileId),
     }));
-  }, []);
-
-  const clearFiles = useCallback(() => {
-    setState((prev) => ({ ...prev, attachedFiles: [] }));
   }, []);
 
   const submit = useCallback(
@@ -501,7 +493,7 @@ export const useCompletion = () => {
   };
 
   const onRemoveAllFiles = () => {
-    clearFiles();
+    setState((prev) => ({ ...prev, attachedFiles: [] }));
     setIsFilesPopoverOpen(false);
   };
 
@@ -624,19 +616,15 @@ export const useCompletion = () => {
     input: state.input,
     setInput,
     response: state.response,
-    setResponse,
     isLoading: state.isLoading,
     error: state.error,
     attachedFiles: state.attachedFiles,
-    addFile,
     removeFile,
-    clearFiles,
     submit,
     isRecording,
     setIsRecording,
     isTranscribing,
     toggleManualRecording,
-    currentConversationId: state.currentConversationId,
     conversationHistory: state.conversationHistory,
     loadConversation,
     startNewConversation,
