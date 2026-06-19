@@ -179,16 +179,13 @@ fn normalize_audio_level(samples: &[f32], target_rms: f32) -> Vec<f32> {
     if current_rms < 0.001 {
         return samples.to_vec();
     }
+    
     let gain = (target_rms / current_rms).min(10.0);
+    
     samples
         .iter()
         .map(|&s| {
-            let amplified = s * gain;
-            if amplified.abs() > 1.0 {
-                amplified.signum() * (1.0 - (-amplified.abs()).exp())
-            } else {
-                amplified
-            }
+            (s * gain).clamp(-1.0, 1.0)
         })
         .collect()
 }

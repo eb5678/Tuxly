@@ -199,9 +199,7 @@ export const ShortcutManager = () => {
 
                   <div className="flex items-center gap-2">
                     <code className="px-3 py-1.5 bg-muted rounded text-xs lg:text-sm font-mono">
-                      {action.id === "move_window"
-                        ? `${formatShortcutKeyForDisplay(binding.key)} + (← ↑ ↓ →)`
-                        : formatShortcutKeyForDisplay(binding.key)}
+                      {formatShortcutKeyForDisplay(binding.key)}
                     </code>
                     <Button
                       size="sm"

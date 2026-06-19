@@ -27,7 +27,6 @@ pub fn run() {
         )
         .manage(AudioState::default())
         .manage(shortcuts::RegisteredShortcuts::default())
-        .manage(shortcuts::MoveWindowState::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_http::init());
         
@@ -68,17 +67,9 @@ pub fn run() {
                         if let Some(action_id) = action_id {
                             match event.state() {
                                 ShortcutState::Pressed => {
-                                    if let Some(direction) = action_id.strip_prefix("move_window_") {
-                                        shortcuts::start_move_window(app, direction);
-                                    } else {
-                                        shortcuts::handle_shortcut_action(app, &action_id);
-                                    }
+                                    shortcuts::handle_shortcut_action(app, &action_id);
                                 }
-                                ShortcutState::Released => {
-                                    if let Some(direction) = action_id.strip_prefix("move_window_") {
-                                        shortcuts::stop_move_window(app, direction);
-                                    }
-                                }
+                                ShortcutState::Released => {}
                             }
                         }
                     })

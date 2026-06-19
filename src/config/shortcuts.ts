@@ -14,12 +14,6 @@ export const DEFAULT_SHORTCUT_ACTIONS: ShortcutAction[] = [
     defaultKey: "alt+shift+i",
   },
   {
-    id: "move_window",
-    name: "Move Overlay",
-    description: "Move overlay with arrow keys",
-    defaultKey: "alt",
-  },
-  {
     id: "audio_recording",
     name: "Toggle Recording (Mic/System)",
     description: "Start/Stop recording audio",

@@ -7,14 +7,11 @@ interface ShortcutRecorderProps {
   onSave: (key: string) => void;
   onCancel: () => void;
   disabled?: boolean;
-  actionId?: string;
 }
 
-export const ShortcutRecorder = ({ onSave, onCancel, disabled = false, actionId }: ShortcutRecorderProps) => {
+export const ShortcutRecorder = ({ onSave, onCancel, disabled = false }: ShortcutRecorderProps) => {
   const [recordedKeys, setRecordedKeys] = useState<string[]>([]);
   const [error, setError] = useState<string>("");
-  const isMoveWindow = actionId === "move_window";
-  const minKeys = isMoveWindow ? 1 : 2;
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
       e.preventDefault();
@@ -45,25 +42,16 @@ export const ShortcutRecorder = ({ onSave, onCancel, disabled = false, actionId 
       const normalizedCombo = normalizeShortcutKey(keys.join("+"));
       const finalKeysArray = normalizedCombo.split("+");
 
-      if (isMoveWindow) {
-        if (!isModifierOnly && ["up", "down", "left", "right"].includes(mainKeyRaw)) {
-          setError("Arrow keys are automatic. Only set modifiers.");
-          return;
-        }
+      const hasModifier = finalKeysArray.some(k => ["super", "ctrl", "alt", "shift"].includes(k));
+      if (hasModifier && !isModifierOnly) {
         setRecordedKeys(finalKeysArray);
         setError("");
       } else {
-        const hasModifier = finalKeysArray.some(k => ["super", "ctrl", "alt", "shift"].includes(k));
-        if (hasModifier && !isModifierOnly) {
-          setRecordedKeys(finalKeysArray);
-          setError("");
-        } else {
-          setRecordedKeys(finalKeysArray);
-          setError("Must include at least one modifier and one key");
-        }
+        setRecordedKeys(finalKeysArray);
+        setError("Must include at least one modifier and one key");
       }
     },
-    [isMoveWindow]
+    []
   );
   
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
@@ -82,7 +70,7 @@ export const ShortcutRecorder = ({ onSave, onCancel, disabled = false, actionId 
   }, [handleKeyDown, handleKeyUp]);
 
   const handleSave = async () => {
-    if (recordedKeys.length < minKeys) {
+    if (recordedKeys.length < 2) {
        setError("Shortcut needs at least one modifier and one key (e.g. Alt+S)");
        return;
     }
@@ -95,7 +83,7 @@ export const ShortcutRecorder = ({ onSave, onCancel, disabled = false, actionId 
         <div className="flex-1 px-3 py-2 bg-primary/5 border-2 border-primary/50 rounded-md font-mono text-sm text-center">
              <span className="text-primary font-medium animate-pulse">⌨️ {recordedKeys.length > 0 ? formatShortcutKeyForDisplay(recordedKeys.join("+")) : "Press a combination (e.g. Alt+Key)..."}</span>
         </div>
-        <Button size="sm" onClick={handleSave} disabled={disabled || recordedKeys.length < minKeys}><Check className="h-4 w-4" /> Save</Button>
+        <Button size="sm" onClick={handleSave} disabled={disabled || recordedKeys.length < 2}><Check className="h-4 w-4" /> Save</Button>
         <Button size="sm" variant="outline" onClick={onCancel} disabled={disabled}><X className="h-4 w-4" /> Cancel</Button>
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}

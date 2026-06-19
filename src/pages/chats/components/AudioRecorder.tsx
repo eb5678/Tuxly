@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components";
-import { AudioVisualizer } from "@/pages/app/components/speech/audio-visualizer";
 import { fetchSTT } from "@/lib";
 import { useApp } from "@/contexts";
-import { StopCircle, Send } from "lucide-react";
+import { StopCircle, Send, MicIcon } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -48,14 +47,12 @@ export const AudioRecorder = ({
         setIsTranscribing(true);
 
         const base64Audio = event.payload as string;
-        const binaryString = atob(base64Audio);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        const audioBlob = new Blob([bytes], { type: "audio/wav" });
-
+        
         try {
+          // BLAZING FAST: Offloads Base64 parsing to the C++ backend
+          const response = await fetch(`data:audio/wav;base64,${base64Audio}`);
+          const audioBlob = await response.blob();
+
           const provider = allSttProviders.find(p => p.id === selectedSttProvider.provider);
 
           const text = await fetchSTT({
@@ -119,14 +116,10 @@ export const AudioRecorder = ({
 
   return (
     <div className="border bg-background rounded-lg overflow-hidden">
-      <div className="h-12 relative bg-muted/20">
-        <div className="h-full w-full pt-3">
-          <AudioVisualizer isRecording={!isTranscribing} />
-        </div>
-      </div>
-      <div className="flex items-center justify-between px-4 py-2.5 border-t bg-muted/5">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-muted/5">
         <div className="flex items-center gap-2">
-          <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse" />
+          <div className="h-3 w-3 bg-red-500 rounded-sm animate-pulse" />
+          <MicIcon className="h-4 w-4 text-muted-foreground ml-1" />
           <span className="text-sm font-mono tabular-nums font-medium">
             {formatTime(duration)}
           </span>
@@ -139,7 +132,7 @@ export const AudioRecorder = ({
             onClick={handleStop}
             disabled={isTranscribing}
             className="h-8 w-8"
-            title="Stop recording"
+            title="Stop discarding"
           >
             <StopCircle className="h-4 w-4" />
           </Button>
