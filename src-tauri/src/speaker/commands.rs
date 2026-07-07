@@ -134,10 +134,12 @@ async fn run_manual_capture(
 
     if !audio_buffer.is_empty() {
         let noise_gate_threshold = 0.003;
-        let cleaned_audio = apply_noise_gate(&audio_buffer, noise_gate_threshold);
-        let cleaned_audio = normalize_audio_level(&cleaned_audio, 0.1);
+        
+        // Massive memory footprint optimization applied here via in-place mutation
+        apply_noise_gate_in_place(&mut audio_buffer, noise_gate_threshold);
+        normalize_audio_level_in_place(&mut audio_buffer, 0.1);
 
-        match samples_to_wav_b64(sr, &cleaned_audio) {
+        match samples_to_wav_b64(sr, &audio_buffer) {
             Ok(b64) => {
                 let _ = app.emit("speech-detected", b64);
             }
@@ -154,40 +156,32 @@ async fn run_manual_capture(
     let _ = app.emit("continuous-recording-stopped", ());
 }
 
-fn apply_noise_gate(samples: &[f32], threshold: f32) -> Vec<f32> {
+fn apply_noise_gate_in_place(samples: &mut [f32], threshold: f32) {
     const KNEE_RATIO: f32 = 3.0;
-    samples
-        .iter()
-        .map(|&s| {
-            let abs = s.abs();
-            if abs < threshold {
-                s * (abs / threshold).powf(1.0 / KNEE_RATIO)
-            } else {
-                s
-            }
-        })
-        .collect()
+    for s in samples.iter_mut() {
+        let abs = s.abs();
+        if abs < threshold {
+            *s = *s * (abs / threshold).powf(1.0 / KNEE_RATIO);
+        }
+    }
 }
 
-fn normalize_audio_level(samples: &[f32], target_rms: f32) -> Vec<f32> {
+fn normalize_audio_level_in_place(samples: &mut [f32], target_rms: f32) {
     if samples.is_empty() {
-        return Vec::new();
+        return;
     }
     let sum_squares: f32 = samples.iter().map(|&s| s * s).sum();
     let current_rms = (sum_squares / samples.len() as f32).sqrt();
 
     if current_rms < 0.001 {
-        return samples.to_vec();
+        return;
     }
     
     let gain = (target_rms / current_rms).min(10.0);
     
-    samples
-        .iter()
-        .map(|&s| {
-            (s * gain).clamp(-1.0, 1.0)
-        })
-        .collect()
+    for s in samples.iter_mut() {
+        *s = (*s * gain).clamp(-1.0, 1.0);
+    }
 }
 
 fn samples_to_wav_b64(sample_rate: u32, mono_f32: &[f32]) -> Result<String, String> {

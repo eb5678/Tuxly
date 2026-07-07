@@ -1,8 +1,8 @@
 import { Completion } from "./components";
-import { useApp } from "@/hooks";
+import { useAppInit } from "@/hooks";
 
 const App = () => {
-  useApp(); // Setup initial DB structures strictly
+  useAppInit(); // Setup initial DB structures & listeners strictly without Context collision
 
   return (
       <div

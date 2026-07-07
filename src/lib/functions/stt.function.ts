@@ -146,7 +146,7 @@ export async function fetchSTT(params: STTParams): Promise<string> {
       body = JSON.stringify(deepVariableReplacer(dataObj, allVariables));
     }
 
-    const fetchFunction = url?.includes("http") ? fetch : tauriFetch;
+    const fetchFunction = tauriFetch;
 
     // Send request
     let response: Response;

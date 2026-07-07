@@ -428,32 +428,23 @@ impl SpeakerStream {
 
                     match simple.read(&mut buffer) {
                         Ok(_) => {
-                            let samples: Vec<f32> = buffer
-                                .chunks_exact(4)
-                                .map(|chunk| {
-                                    f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]])
-                                })
-                                .collect();
-
-                            if !samples.is_empty() {
-                                let mut queue = sample_queue.lock().unwrap();
-                                const MAX_BUFFER_SIZE: usize = 262144;
-
-                                queue.extend(samples.iter());
-
-                                if queue.len() > MAX_BUFFER_SIZE {
-                                    let to_drop = queue.len() - MAX_BUFFER_SIZE;
-                                    queue.drain(0..to_drop);
-                                }
-
-                                {
-                                    let mut state = waker_state.lock().unwrap();
-                                    if !state.has_data {
-                                        state.has_data = true;
-                                        if let Some(waker) = state.waker.take() {
-                                            drop(state);
-                                            waker.wake();
-                                        }
+                            let mut queue = sample_queue.lock().unwrap();
+                            const MAX_BUFFER_SIZE: usize = 262144;
+                            for chunk in buffer.chunks_exact(4) {
+                                let sample = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+                                queue.push_back(sample);
+                            }
+                            if queue.len() > MAX_BUFFER_SIZE {
+                                let to_drop = queue.len() - MAX_BUFFER_SIZE;
+                                queue.drain(0..to_drop);
+                            }
+                            {
+                                let mut state = waker_state.lock().unwrap();
+                                if !state.has_data {
+                                    state.has_data = true;
+                                    if let Some(waker) = state.waker.take() {
+                                        drop(state);
+                                        waker.wake();
                                     }
                                 }
                             }

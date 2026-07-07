@@ -8,5 +8,5 @@ export * from "./useHistory";
 export * from "./useCopyToClipboard";
 export * from "./useTitles";
 export * from "./useSystemPrompts";
-export * from "./useApp";
+export * from "./useAppInit";
 export * from "./useMenuItems";

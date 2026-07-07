@@ -43,16 +43,17 @@ export const Markdown = memo(function Markdown({
   
   const controls = useMemo(
     () => ({
-      table: !isStreaming,
-      code: !isStreaming,
+      table: true,
+      code: true,
       mermaid: {
-        download: !isStreaming,
+        enabled: true,
         copy: true,
-        fullscreen: !isStreaming,
-        panZoom: !isStreaming,
+        fullscreen: true,
+        panZoom: true,
+        theme: "dark",
       },
     }),
-    [isStreaming]
+    []
   );
 
   return (

@@ -166,3 +166,32 @@
   word-wrap: break-word !important;
   white-space: pre-wrap !important;
 }
+
+.mermaid, [data-streamdown*="mermaid"] {
+  background-color: var(--card) !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  overflow: hidden !important;
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  min-height: 250px;
+  width: 100%;           
+  cursor: grab;
+}
+.mermaid:active, [data-streamdown*="mermaid"]:active {
+  cursor: grabbing;
+}
+.mermaid svg, [data-streamdown*="mermaid"] svg {
+  max-width: 100%;
+  height: auto;
+  pointer-events: all !important;
+}
+[data-streamdown="code-block"]:has(.mermaid) pre {
+  padding: 0 !important;
+  background-color: transparent !important;
+  border: none !important;
+}

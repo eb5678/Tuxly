@@ -83,10 +83,15 @@ export const useCompletion = () => {
   }, []);
 
   const submit = useCallback(
-    async (speechText?: string) => {
-      const input = speechText || state.input;
-      if (!input.trim()) return;
-      if (speechText) setState(prev => ({ ...prev, input: speechText }));
+    async (speechTextOrEvent?: string | React.SyntheticEvent | unknown) => {
+      const isManualText = typeof speechTextOrEvent === "string";
+      const input = isManualText ? (speechTextOrEvent as string) : state.input;
+
+      if (!input.trim() || state.isLoading) return; 
+
+      if (isManualText) {
+        setState((prev) => ({ ...prev, input: speechTextOrEvent as string }));
+      }
 
       const requestId = generateRequestId();
       currentRequestIdRef.current = requestId;
@@ -96,37 +101,31 @@ export const useCompletion = () => {
       const signal = abortControllerRef.current.signal;
 
       try {
-        const messageHistory = state.conversationHistory.map(msg => ({
+        const messageHistory = state.conversationHistory.map((msg) => ({
           role: msg.role,
           content: msg.content,
         }));
 
         const imagesBase64 = state.attachedFiles
-          .filter(file => file.type.startsWith("image/"))
-          .map(file => file.base64);
+          .filter((file) => file.type.startsWith("image/"))
+          .map((file) => file.base64);
 
         if (!selectedAIProvider.provider) {
-          setState(prev => ({ ...prev, error: "Please select an AI provider in settings" }));
+          setState((prev) => ({ ...prev, error: "Please select an AI provider in settings" }));
           return;
         }
 
-        const provider = allAiProviders.find(p => p.id === selectedAIProvider.provider);
+        const provider = allAiProviders.find((p) => p.id === selectedAIProvider.provider);
         if (!provider) {
-          setState(prev => ({ ...prev, error: "Invalid provider selected" }));
+          setState((prev) => ({ ...prev, error: "Invalid provider selected" }));
           return;
         }
 
-        setState(prev => ({ ...prev, isLoading: true, error: null, response: "" }));
+        setState((prev) => ({ ...prev, isLoading: true, error: null, response: "" }));
         rawStreamBufferRef.current = "";
-        
         if (streamingTextRef.current) {
           streamingTextRef.current.textContent = "Generating response...";
         }
-
-        const scrollElement = scrollAreaRef.current?.querySelector(
-          "[data-radix-scroll-area-viewport]"
-        ) as HTMLElement | null;
-        let lastScrollTime = 0;
 
         try {
           for await (const chunk of fetchAIResponse({
@@ -142,48 +141,39 @@ export const useCompletion = () => {
 
             rawStreamBufferRef.current += chunk;
 
-            // Direct DOM manipulation mapping to UI (No React Re-Renders)
             if (streamingTextRef.current) {
               streamingTextRef.current.textContent = rawStreamBufferRef.current;
-            }
-
-            // 60FPS Layout Thrash-Free Auto Scroll (16ms interval limitation)
-            const now = performance.now();
-            if (scrollElement && (now - lastScrollTime > 16)) {
-              lastScrollTime = now;
-              requestAnimationFrame(() => {
-                const distanceToBottom = scrollElement.scrollHeight - scrollElement.scrollTop - scrollElement.clientHeight;
-                if (distanceToBottom <= 150) {
-                  scrollElement.scrollTop = scrollElement.scrollHeight;
-                }
-              });
             }
           }
         } catch (e: any) {
           if (currentRequestIdRef.current === requestId && !signal.aborted) {
-            setState(prev => ({ ...prev, isLoading: false, error: e.message || "An error occurred" }));
+            setState((prev) => ({ ...prev, isLoading: false, error: e.message || "An error occurred" }));
           }
           return;
         }
 
         if (currentRequestIdRef.current !== requestId || signal.aborted) return;
-        
+
         const compiledResponse = rawStreamBufferRef.current;
-        setState(prev => ({ ...prev, isLoading: false, response: compiledResponse }));
+        setState((prev) => ({ ...prev, isLoading: false, response: compiledResponse }));
         setTimeout(() => inputRef.current?.focus(), 50);
 
         if (compiledResponse) {
           await saveCurrentConversation(input, compiledResponse, state.attachedFiles);
-          setState(prev => ({ ...prev, input: "", attachedFiles: [], response: "" }));
+          setState((prev) => ({ ...prev, input: "", attachedFiles: [], response: "" }));
           if (streamingTextRef.current) streamingTextRef.current.textContent = "";
         }
       } catch (error) {
         if (!signal.aborted && currentRequestIdRef.current === requestId) {
-          setState(prev => ({ ...prev, error: error instanceof Error ? error.message : "An error occurred", isLoading: false }));
+          setState((prev) => ({
+            ...prev,
+            error: error instanceof Error ? error.message : "An error occurred",
+            isLoading: false,
+          }));
         }
       }
     },
-    [state.input, state.attachedFiles, selectedAIProvider, allAiProviders, systemPrompt, state.conversationHistory]
+    [state.input, state.isLoading, state.attachedFiles, selectedAIProvider, allAiProviders, systemPrompt, state.conversationHistory]
   );
 
   const unlistenAudioRef = useRef<any>(null);
