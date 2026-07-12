@@ -6,7 +6,7 @@ import { getConversationById } from "@/lib";
 import { ChatConversation } from "@/types";
 import {
   Download, MessageCircleIcon, MessageCircleReplyIcon, Trash2,
-  SparklesIcon, UserIcon, SendIcon, Check, Loader2,
+  SparklesIcon, UserIcon, SendIcon, Check, Loader2, Trash2Icon,
 } from "lucide-react";
 import { useState, useEffect, memo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -18,7 +18,7 @@ import { DeleteConfirmationDialog, ChatAudio, ChatFiles, AudioRecorder } from ".
 const dateFormatter = new Intl.DateTimeFormat("en-US", { weekday: 'short', month: 'short', day: 'numeric' });
 const timeFormatter = new Intl.DateTimeFormat("en-US", { hour: '2-digit', minute: '2-digit' });
 
-const MemoizedMessageBubble = memo(({ message, showDate }: { message: any, showDate: boolean }) => {
+const MemoizedMessageBubble = memo(({ message, showDate, onDelete }: { message: any, showDate: boolean, onDelete: (id: string) => void }) => {
   const isUser = message.role === "user";
   return (
     <div>
@@ -37,7 +37,7 @@ const MemoizedMessageBubble = memo(({ message, showDate }: { message: any, showD
           </div>
         )}
 
-        <div className={`flex flex-col gap-1 max-w-[70%] ${isUser ? "items-end" : "items-start"}`}>
+        <div className={`flex flex-col gap-1 max-w-[70%] group ${isUser ? "items-end" : "items-start"}`}>
           <Card className={`p-3 text-xs lg:text-sm transition-all shadow-none ${
               isUser
                 ? "!bg-primary text-primary-foreground !border-primary rounded-tr-sm"
@@ -45,9 +45,14 @@ const MemoizedMessageBubble = memo(({ message, showDate }: { message: any, showD
             }`}>
             <Markdown>{message.content}</Markdown>
           </Card>
-          <Badge variant="outline" className={`text-[10px] lg:text-xs bg-transparent border-none ${isUser ? "-mr-1" : "-ml-1"}`}>
-            {timeFormatter.format(message.timestamp)}
-          </Badge>
+          <div className={`flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+            <Badge variant="outline" className="text-[10px] lg:text-xs bg-transparent border-none">
+              {timeFormatter.format(message.timestamp)}
+            </Badge>
+            <Button variant="ghost" size="icon" className="h-6 w-6 cursor-pointer hover:bg-destructive/20 hover:text-destructive" onClick={() => onDelete(message.id)} title="Delete Message">
+               <Trash2Icon className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {isUser && (
@@ -140,7 +145,7 @@ const View = () => {
             const prevDate = index > 0 ? new Date(array[index - 1]?.timestamp).setHours(0,0,0,0) : null;
             const showDate = index === 0 || currentDate !== prevDate;
 
-            return <MemoizedMessageBubble key={message.id || index} message={message} showDate={showDate} />;
+            return <MemoizedMessageBubble key={message.id || index} message={message} showDate={showDate} onDelete={completion.deleteMessageFromHistory}/>;
           })}
 
           {(completion.isLoading || completion.response) && (

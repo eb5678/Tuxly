@@ -4,6 +4,7 @@ import { EditIcon, TrashIcon } from "lucide-react";
 import { CreateEditProvider } from "./CreateEditProvider";
 import { useCustomAiProviders } from "@/hooks";
 import curl2Json from "@bany/curl-to-json";
+import { useMemo } from "react";
 
 export const CustomProviders = ({ allAiProviders }: UseSettingsReturn) => {
   const customProviderHook = useCustomAiProviders();
@@ -15,6 +16,17 @@ export const CustomProviders = ({ allAiProviders }: UseSettingsReturn) => {
     cancelDelete,
   } = customProviderHook;
 
+  const parsedProviders = useMemo(() => {
+    return allAiProviders
+      .filter((provider) => provider?.isCustom)
+      .map(p => ({
+        ...p,
+        json: (() => {
+          try { return curl2Json(p.curl); } catch { return null; }
+        })()
+      }));
+  }, [allAiProviders]);
+
   return (
     <div className="space-y-2">
       <Header
@@ -24,14 +36,9 @@ export const CustomProviders = ({ allAiProviders }: UseSettingsReturn) => {
 
       <div className="space-y-2">
         {/* Existing Custom Providers */}
-        {allAiProviders.filter((provider) => provider?.isCustom).length > 0 && (
+        {parsedProviders.length > 0 && (
           <div className="space-y-2">
-            {allAiProviders
-              .filter((provider) => provider?.isCustom)
-              .map((provider) => {
-                const json = curl2Json(provider?.curl);
-
-                return (
+            {parsedProviders.map((provider) => (
                   <Card
                     key={provider?.id}
                     className="p-3 border !bg-transparent border-input/50"
@@ -39,7 +46,7 @@ export const CustomProviders = ({ allAiProviders }: UseSettingsReturn) => {
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className="font-medium text-sm">
-                          {json?.url || "Invalid curl command"}
+                          {provider.json?.url || "Invalid curl command"}
                         </h4>
 
                         <div className="flex items-center gap-2 mt-1">
@@ -81,8 +88,8 @@ export const CustomProviders = ({ allAiProviders }: UseSettingsReturn) => {
                       </div>
                     </div>
                   </Card>
-                );
-              })}
+                )
+              )}
           </div>
         )}
       </div>

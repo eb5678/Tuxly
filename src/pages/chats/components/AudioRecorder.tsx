@@ -43,24 +43,19 @@ export const AudioRecorder = ({
 
   const startNativeRecording = async () => {
     try {
-      unlistenRef.current = await listen("speech-detected", async (event: any) => {
+      unlistenRef.current = await listen<number[]>("speech-detected", async (event) => {
         setIsTranscribing(true);
-
-        const base64Audio = event.payload as string;
+        
+        const rawAudioBytes = new Uint8Array(event.payload);
         
         try {
-          // BLAZING FAST: Offloads Base64 parsing to the C++ backend
-          const response = await fetch(`data:audio/wav;base64,${base64Audio}`);
-          const audioBlob = await response.blob();
-
+          const audioBlob = new Blob([rawAudioBytes], { type: "audio/wav" });
           const provider = allSttProviders.find(p => p.id === selectedSttProvider.provider);
-
           const text = await fetchSTT({
             provider: provider,
             selectedProvider: selectedSttProvider,
             audio: audioBlob,
           });
-
           if (text) onTranscriptionComplete(text);
           else onCancel();
         } catch (error) {

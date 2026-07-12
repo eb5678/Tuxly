@@ -11,8 +11,9 @@ import {
   generateMessageId,
   generateRequestId,
   fetchSTT,
+  deleteMessage,
 } from "@/lib";
-import { AttachedFile, ChatMessage, ChatConversation, CompletionState } from "@/types";
+import { AttachedFile, ChatConversation, CompletionState } from "@/types";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -62,24 +63,47 @@ export const useCompletion = () => {
     });
   }, []);
 
-  const addFile = useCallback(async (file: File) => {
-    try {
-      const base64 = await fileToBase64(file);
-      const attachedFile: AttachedFile = {
-        id: Date.now().toString(),
-        name: file.name,
-        type: file.type,
-        base64,
-        size: file.size,
-      };
-      setState(prev => ({ ...prev, attachedFiles: [...prev.attachedFiles, attachedFile] }));
-    } catch (error) {
-      console.error("Failed to process file:", error);
-    }
-  }, [fileToBase64]);
+  const addFile = useCallback((file: File) => {
+    const previewUrl = URL.createObjectURL(file);
+    const attachedFile: AttachedFile = {
+      id: Date.now().toString(),
+      name: file.name,
+      type: file.type,
+      previewUrl,
+      fileObj: file,
+      size: file.size,
+    };
+    setState(prev => ({ ...prev, attachedFiles: [...prev.attachedFiles, attachedFile] }));
+  }, []);
 
   const removeFile = useCallback((fileId: string) => {
-    setState(prev => ({ ...prev, attachedFiles: prev.attachedFiles.filter(f => f.id !== fileId) }));
+    setState(prev => {
+      const fileToRemove = prev.attachedFiles.find(f => f.id === fileId);
+      if (fileToRemove?.previewUrl) URL.revokeObjectURL(fileToRemove.previewUrl);
+      return { ...prev, attachedFiles: prev.attachedFiles.filter(f => f.id !== fileId) };
+    });
+  }, []);
+
+  const onRemoveAllFiles = useCallback(() => {
+    setState(prev => {
+      prev.attachedFiles.forEach(f => {
+        if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+      });
+      return { ...prev, attachedFiles: [] };
+    });
+    setIsFilesPopoverOpen(false);
+  }, []);
+
+  const deleteMessageFromHistory = useCallback(async (messageId: string) => {
+    try {
+      await deleteMessage(messageId);
+      setState(prev => ({
+        ...prev,
+        conversationHistory: prev.conversationHistory.filter(m => m.id !== messageId)
+      }));
+    } catch (e) {
+      console.error("Failed to delete message", e);
+    }
   }, []);
 
   const submit = useCallback(
@@ -106,9 +130,11 @@ export const useCompletion = () => {
           content: msg.content,
         }));
 
-        const imagesBase64 = state.attachedFiles
-          .filter((file) => file.type.startsWith("image/"))
-          .map((file) => file.base64);
+        const imagesBase64 = await Promise.all(
+          state.attachedFiles
+            .filter((file) => file.type.startsWith("image/"))
+            .map((file) => fileToBase64(file.fileObj))
+        );
 
         if (!selectedAIProvider.provider) {
           setState((prev) => ({ ...prev, error: "Please select an AI provider in settings" }));
@@ -173,7 +199,7 @@ export const useCompletion = () => {
         }
       }
     },
-    [state.input, state.isLoading, state.attachedFiles, selectedAIProvider, allAiProviders, systemPrompt, state.conversationHistory]
+    [state.input, state.isLoading, state.attachedFiles, selectedAIProvider, allAiProviders, systemPrompt, state.conversationHistory, fileToBase64]
   );
 
   const unlistenAudioRef = useRef<any>(null);
@@ -195,21 +221,25 @@ export const useCompletion = () => {
       await invoke("manual_stop_continuous").catch(() => {});
     } else {
       try {
+        setIsRecording(true); // TRIGGER INSTANTLY FOR PROMPT UI FEEDBACK BEFORE RUST EVENT OVERHEAD
         await cleanupAudio();
         
-        unlistenAudioRef.current = await listen("speech-detected", async (event: any) => {
+        unlistenAudioRef.current = await listen<number[]>("speech-detected", async (event) => {
           setIsRecording(false);
-          const base64Audio = event.payload as string;
-
+          
+          const rawAudioBytes = new Uint8Array(event.payload);
           try {
             const provider = allSttProviders.find(p => p.id === selectedSttProvider.provider);
+            const audioBlob = new Blob([rawAudioBytes], { type: "audio/wav" });
+            
             const text = await fetchSTT({
               provider,
               selectedProvider: selectedSttProvider,
-              audio: new Blob([new Uint8Array(atob(base64Audio).split("").map(c => c.charCodeAt(0)))], { type: "audio/wav" }),
+              audio: audioBlob,
             });
             if (text) submit(text);
-          } catch {
+          } catch (err) {
+             console.error("Transcription Error:", err);
              setState(prev => ({ ...prev, error: "Transcription failed." }));
           } finally {
              setIsTranscribing(false);
@@ -232,7 +262,6 @@ export const useCompletion = () => {
 
         await invoke("start_system_audio_capture", { maxDurationSecs: 180, deviceId });
 
-        setIsRecording(true);
         setTimeout(() => { isMicBusyRef.current = false; }, 300);
       } catch {
         setState(prev => ({ ...prev, error: "Failed to start recording." }));
@@ -342,11 +371,6 @@ export const useCompletion = () => {
     e.target.value = "";
   };
 
-  const onRemoveAllFiles = () => {
-    setState(prev => ({ ...prev, attachedFiles: [] }));
-    setIsFilesPopoverOpen(false);
-  };
-
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -354,11 +378,9 @@ export const useCompletion = () => {
     }
   };
 
-  // Robust parsing to intercept Wayland image binaries that WebKitGTK often fails to map onto synchronous clipboard payload
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
     let imageFiles: File[] = [];
 
-    // Phase 1: Try synchronous capture from standard text input event
     if (e.clipboardData && e.clipboardData.items) {
       const items = Array.from(e.clipboardData.items);
       for (const item of items) {
@@ -369,7 +391,6 @@ export const useCompletion = () => {
       }
     }
 
-    // Phase 2: Asynchronous OS-level fallback for Wayland screenshot utilities
     if (imageFiles.length === 0 && navigator.clipboard?.read) {
       try {
         const clipboardItems = await navigator.clipboard.read();
@@ -397,7 +418,7 @@ export const useCompletion = () => {
         return;
       }
 
-      await Promise.all(imageFiles.map(addFile));
+      imageFiles.forEach(addFile);
       setState(prev => ({ ...prev, error: null }));
     }
   }, [addFile, supportsImages]);
@@ -444,6 +465,7 @@ export const useCompletion = () => {
     conversationHistory: state.conversationHistory,
     loadConversation,
     startNewConversation,
+    deleteMessageFromHistory,
     handleFileSelect,
     handleKeyPress,
     handlePaste,

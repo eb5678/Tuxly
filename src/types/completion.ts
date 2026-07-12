@@ -1,9 +1,10 @@
-// Completion-related types
 export interface AttachedFile {
   id: string;
   name: string;
   type: string;
-  base64: string;
+  previewUrl: string;
+  fileObj: File;
+  base64?: string;
   size: number;
 }
 

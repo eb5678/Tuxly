@@ -17,7 +17,7 @@ use pulse::mainloop::standard::Mainloop;
 use pulse::sample::{Format, Spec};
 use pulse::stream::Direction;
 
-const DEFAULT_SAMPLE_RATE: u32 = 44_100;
+const DEFAULT_SAMPLE_RATE: u32 = 48_000; 
 const AUDIO_CHUNK_SIZE: usize = 1024;
 
 pub fn get_input_devices() -> Result<Vec<AudioDevice>> {
@@ -275,7 +275,7 @@ fn get_default_monitor_source() -> Option<String> {
             Some(format!("{}{}", sink, suffix))
         }
         Err(e) => {
-            error!("PulseAudio: Failed to resolve default output sink: {}", e);
+            error!("PulseAudio/PipeWire: Failed to resolve default output sink: {}", e);
             None
         }
     }
@@ -390,7 +390,7 @@ impl SpeakerStream {
         let spec = Spec {
             format: Format::F32le,
             channels: 1,
-            rate: 44100,
+            rate: 48000,
         };
 
         if !spec.is_valid() {

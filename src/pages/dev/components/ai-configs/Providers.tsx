@@ -2,7 +2,7 @@ import { Button, Header, Input, Selection, TextInput } from "@/components";
 import { UseSettingsReturn } from "@/types";
 import curl2Json, { ResultJSON } from "@bany/curl-to-json";
 import { KeyIcon, TrashIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 export const Providers = ({
   allAiProviders,
@@ -19,11 +19,27 @@ export const Providers = ({
         (p) => p?.id === selectedAIProvider?.provider
       );
       if (provider) {
-        const json = curl2Json(provider?.curl);
-        setLocalSelectedProvider(json as ResultJSON);
+        try {
+          const json = curl2Json(provider?.curl);
+          setLocalSelectedProvider(json as ResultJSON);
+        } catch { }
       }
     }
-  }, [selectedAIProvider?.provider]);
+  }, [selectedAIProvider?.provider, allAiProviders]);
+
+  const providerOptions = useMemo(() => {
+   return allAiProviders?.map((provider) => {
+     let jsonUrl = "";
+     try { jsonUrl = curl2Json(provider?.curl)?.url || ""; } catch { }
+     return {
+       label: provider?.isCustom
+         ? jsonUrl || "Custom Provider"
+         : provider?.id || "Custom Provider",
+       value: provider?.id || "Custom Provider",
+       isCustom: provider?.isCustom,
+     };
+   });
+  }, [allAiProviders]);
 
   const findKeyAndValue = (key: string) => {
     return variables?.find((v) => v?.key === key);
@@ -48,16 +64,7 @@ export const Providers = ({
         />
         <Selection
           selected={selectedAIProvider?.provider}
-          options={allAiProviders?.map((provider) => {
-            const json = curl2Json(provider?.curl);
-            return {
-              label: provider?.isCustom
-                ? json?.url || "Custom Provider"
-                : provider?.id || "Custom Provider",
-              value: provider?.id || "Custom Provider",
-              isCustom: provider?.isCustom,
-            };
-          })}
+          options={providerOptions}
           placeholder="Choose your AI provider"
           onChange={(value) => {
             onSetSelectedAIProvider({

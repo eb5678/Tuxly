@@ -92,7 +92,7 @@ export const Files = ({
                     className="relative group border rounded-lg overflow-hidden bg-muted/20"
                   >
                     <img
-                      src={`data:${file.type};base64,${file.base64}`}
+                      src={file.previewUrl}
                       alt={file.name}
                       className="w-full object-cover h-full"
                     />

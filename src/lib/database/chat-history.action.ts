@@ -86,35 +86,17 @@ async function createConversation(conversation: ChatConversation): Promise<ChatC
 export async function getAllConversations(): Promise<ChatConversation[]> {
   const db = await getDatabase();
   try {
-    const conversations = await db.select<DbConversation[]>("SELECT * FROM conversations ORDER BY updated_at DESC");
-    if (conversations.length === 0) return [];
-
-    const conversationIds = conversations.map((c) => c.id);
-    const placeholders = conversationIds.map(() => "?").join(",");
-    const allMessages = await db.select<DbMessage[]>(
-      `SELECT * FROM messages WHERE conversation_id IN (${placeholders}) ORDER BY conversation_id, timestamp ASC`,
-      conversationIds
+    const conversations = await db.select<DbConversation[]>(
+      "SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC"
     );
-
-    const messagesByConversation = new Map<string, DbMessage[]>();
-    for (const msg of allMessages) {
-      if (!messagesByConversation.has(msg.conversation_id)) messagesByConversation.set(msg.conversation_id, []);
-      messagesByConversation.get(msg.conversation_id)!.push(msg);
-    }
+    if (conversations.length === 0) return [];
 
     return conversations.map((conv) => ({
       id: conv.id,
       title: conv.title,
       createdAt: conv.created_at,
       updatedAt: conv.updated_at,
-      messages:
-        messagesByConversation.get(conv.id)?.map((msg) => ({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          timestamp: msg.timestamp,
-          attachedFiles: safeJsonParse(msg.attached_files, undefined),
-        })) || [],
+      messages: [],
     }));
   } catch (error) {
     throw error;
@@ -149,6 +131,18 @@ export async function getConversationById(id: string): Promise<ChatConversation 
     };
   } catch (error) {
     return null;
+  }
+}
+
+export async function deleteMessage(messageId: string): Promise<boolean> {
+  if (!messageId || typeof messageId !== "string") return false;
+  const db = await getDatabase();
+  try {
+    const result = await db.execute("DELETE FROM messages WHERE id = ?", [messageId]);
+    return result.rowsAffected > 0;
+  } catch (error) {
+    console.error("Error deleting message", error);
+    return false;
   }
 }
 
@@ -232,7 +226,6 @@ export function generateConversationTitle(userMessage: string): string {
 }
 
 export async function migrateLocalStorageToSQLite(): Promise<{ success: boolean; migratedCount: number; error?: string }> {
-  // Existing logic unchanged...
   const migrationKey = "chat_history_migrated_to_sqlite";
 
   try {

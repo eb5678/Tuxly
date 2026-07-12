@@ -1,12 +1,11 @@
 use crate::speaker::{AudioDevice, SpeakerInput};
 use anyhow::Result;
-use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use futures_util::StreamExt;
 use hound::{WavSpec, WavWriter};
 use std::io::Cursor;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Listener, Manager};
 use tracing::{error, warn};
 
@@ -82,8 +81,6 @@ async fn run_manual_capture(
     let mut stream = stream;
     let max_samples = (sr as u64 * max_duration_secs) as usize;
     let mut audio_buffer = Vec::with_capacity(max_samples);
-    let start_time = Instant::now();
-    let max_duration = Duration::from_secs(max_duration_secs);
 
     let stop_flag = Arc::new(AtomicBool::new(false));
     let stop_flag_for_listener = stop_flag.clone();
@@ -93,6 +90,9 @@ async fn run_manual_capture(
     });
 
     let _ = app.emit("continuous-recording-start", max_duration_secs);
+
+    let emit_interval = sr as usize;
+    let mut sample_count: usize = 0;
 
     loop {
         if stop_flag.load(Ordering::Acquire) {
@@ -108,16 +108,15 @@ async fn run_manual_capture(
                         }
 
                         audio_buffer.push(sample);
-                        let elapsed = start_time.elapsed();
+                        sample_count += 1;
 
-                        if audio_buffer.len() % (sr as usize) == 0 {
-                            let _ = app.emit("recording-progress", elapsed.as_secs());
-                        }
-                        if audio_buffer.len() >= max_samples {
-                            break;
-                        }
-                        if elapsed >= max_duration {
-                            break;
+                        if sample_count % emit_interval == 0 {
+                            let elapsed = sample_count / emit_interval;
+                            let _ = app.emit("recording-progress", elapsed as u64);
+                            
+                            if elapsed as u64 >= max_duration_secs {
+                                break;
+                            }
                         }
                     },
                     None => {
@@ -133,15 +132,10 @@ async fn run_manual_capture(
     app.unlisten(stop_listener);
 
     if !audio_buffer.is_empty() {
-        let noise_gate_threshold = 0.003;
-        
-        // Massive memory footprint optimization applied here via in-place mutation
-        apply_noise_gate_in_place(&mut audio_buffer, noise_gate_threshold);
-        normalize_audio_level_in_place(&mut audio_buffer, 0.1);
-
-        match samples_to_wav_b64(sr, &audio_buffer) {
-            Ok(b64) => {
-                let _ = app.emit("speech-detected", b64);
+        // Send pristine, untouched audio to backend algorithms guaranteeing maximum STT accuracy 
+        match samples_to_wav_bytes(sr, &audio_buffer) {
+            Ok(bytes) => {
+                let _ = app.emit("speech-detected", bytes);
             }
             Err(e) => {
                 error!("Failed to encode captured audio: {}", e);
@@ -156,40 +150,9 @@ async fn run_manual_capture(
     let _ = app.emit("continuous-recording-stopped", ());
 }
 
-fn apply_noise_gate_in_place(samples: &mut [f32], threshold: f32) {
-    const KNEE_RATIO: f32 = 3.0;
-    for s in samples.iter_mut() {
-        let abs = s.abs();
-        if abs < threshold {
-            *s = *s * (abs / threshold).powf(1.0 / KNEE_RATIO);
-        }
-    }
-}
-
-fn normalize_audio_level_in_place(samples: &mut [f32], target_rms: f32) {
-    if samples.is_empty() {
-        return;
-    }
-    let sum_squares: f32 = samples.iter().map(|&s| s * s).sum();
-    let current_rms = (sum_squares / samples.len() as f32).sqrt();
-
-    if current_rms < 0.001 {
-        return;
-    }
-    
-    let gain = (target_rms / current_rms).min(10.0);
-    
-    for s in samples.iter_mut() {
-        *s = (*s * gain).clamp(-1.0, 1.0);
-    }
-}
-
-fn samples_to_wav_b64(sample_rate: u32, mono_f32: &[f32]) -> Result<String, String> {
+fn samples_to_wav_bytes(sample_rate: u32, mono_f32: &[f32]) -> Result<Vec<u8>, String> {
     if !(8000..=96000).contains(&sample_rate) {
         return Err(format!("Invalid sample rate: {}. Expected 8000-96000 Hz", sample_rate));
-    }
-    if mono_f32.is_empty() {
-        return Err("Empty audio buffer".to_string());
     }
 
     let mut cursor = Cursor::new(Vec::new());
@@ -207,7 +170,7 @@ fn samples_to_wav_b64(sample_rate: u32, mono_f32: &[f32]) -> Result<String, Stri
         writer.write_sample(sample_i16).map_err(|e| e.to_string())?;
     }
     writer.finalize().map_err(|e| e.to_string())?;
-    Ok(B64.encode(cursor.into_inner()))
+    Ok(cursor.into_inner())
 }
 
 #[tauri::command]
@@ -222,20 +185,16 @@ pub async fn stop_system_audio_capture(app: AppHandle) -> Result<(), String> {
             task.abort();
         }
     }
-    tokio::time::sleep(Duration::from_millis(300)).await;
     *state
         .is_capturing
         .lock()
         .map_err(|e| format!("Failed to update capturing state: {}", e))? = false;
-    tokio::time::sleep(Duration::from_millis(200)).await;
     let _ = app.emit("capture-stopped", ());
     Ok(())
 }
-
 #[tauri::command]
 pub async fn manual_stop_continuous(app: AppHandle) -> Result<(), String> {
     let _ = app.emit("manual-stop-continuous", ());
-    tokio::time::sleep(Duration::from_millis(20)).await;
     Ok(())
 }
 

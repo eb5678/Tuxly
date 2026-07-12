@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from "react";
+import React, { memo, useMemo, Component, ErrorInfo, ReactNode } from "react";
 import { Streamdown } from "streamdown";
 import "katex/dist/katex.min.css";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -36,6 +36,33 @@ const COMPONENTS = {
   },
 };
 
+interface ErrorBoundaryProps { children: ReactNode; }
+interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Markdown render error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-3 bg-destructive/10 text-destructive border border-destructive/20 rounded-md text-xs font-mono break-words">
+           [Render Error]: The AI returned malformed standard tags or math blocks causing a render failure. <br/><br/>
+           Raw Error: {this.state.error?.message}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export const Markdown = memo(function Markdown({
   children,
   isStreaming = false,
@@ -57,13 +84,15 @@ export const Markdown = memo(function Markdown({
   );
 
   return (
-    <Streamdown
-      isAnimating={isStreaming}
-      shikiTheme={SHIKI_THEME as any}
-      components={COMPONENTS as any}
-      controls={controls}
-    >
-      {children}
-    </Streamdown>
+    <ErrorBoundary>
+      <Streamdown
+        isAnimating={isStreaming}
+        shikiTheme={SHIKI_THEME as any}
+        components={COMPONENTS as any}
+        controls={controls}
+      >
+        {children}
+      </Streamdown>
+    </ErrorBoundary>
   );
 });
